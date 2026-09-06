@@ -20,6 +20,27 @@ FigJam 실물 보드와 2026-09-06 대조 완료한 최종본.
   - 조재민: Seat Shell/Seat Web/Counter·Admin 구현(W6~W10) — 이 IA를 이어받아 개발
 - **핸드오프**: 김동욱의 IA/Wireframe(W5~W8)이 끝나야 조재민의 구현(W6~W10)이 이어지는 구조라 일정이 타이트하게 겹침. Handoff 산출물은 QA가 검증 가능한 수준의 상태/인터랙션 스펙 필요.
 
+## 전체 로드맵 (12 Steps)
+
+Design 1-8 · Dev/Field 9-12. **1·2단계는 이 저장소 기준 완료 (2026-09-06, FigJam 대조 검증까지 마침).**
+
+| # | 단계 | 내용 | 상태 |
+|---|------|------|------|
+| 1 | Service Flow | 핵심 사용자 여정·서비스 플로우: 좌석→메뉴→주문→결제→카운터→상태/취소→종료 표준 흐름 | ✅ 완료 |
+| 2 | IA | Seat·Counter·Admin IA: 3개 Web Surface의 정보구조/메뉴/상태 체계 정의 | ✅ 완료 |
+| 3 | Design System | 공통 Component·Typography·Spacing·State·Error 패턴 정의 | ⬜ 다음 단계 |
+| 4 | Wireframe·Seat Web | 메뉴·장바구니·옵션/세트·결제·상태·계정 Flow 설계 | ⬜ |
+| 5 | Wireframe·Counter·Admin | 주문보드·품절·취소·조리·메뉴·좌석·게임마스터 설계 | ⬜ |
+| 6 | Visual High-fidelity UI | 승인된 Wireframe 기반 Seat/Counter/Admin 최종 UI 제작 | ⬜ |
+| 7 | Handoff | Interaction·Prototype·개발 Handoff: 핵심 주문·결제·취소 Interaction과 상태 Spec 전달 | ⬜ |
+| 8 | Pilot·UX 관찰 | 파일럿 UX 관찰·개선: 현장 사용성 이슈를 P1 범위 내 개선 | ⬜ |
+| 9 | Field·현장 체크 | 현장계측·하드웨어 체크: DPI/해상도/프로세스/부팅/업데이트/서명/상주 정책 수집 | ⬜ |
+| 10 | Seat Web Frontend | Seat Web Frontend: 메뉴·Cart·Option·Set·Payment·Status·Account UI 구현 | ⬜ |
+| 11 | Ops Web Frontend | Counter·Admin Frontend: Order board/품절/취소/조리/Menu/Seat/Game master UI | ⬜ |
+| 12 | Pilot·배포 | 파일럿 배포·현장검증 수정: 현장 배포 후 호환/UX/Session/성능 결함 Triage | ⬜ |
+
+다음 작업은 **3. Design System** — 플로우/구조 문서가 아니라 실제 UI 컴포넌트 스펙(버튼·인풋·카드·상태칩 등 공통 요소, State/Error 패턴 포함)을 정의하는 작업.
+
 ---
 
 ## Sheet 01 — Service Flow (최종본)

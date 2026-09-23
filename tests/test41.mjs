@@ -59,6 +59,14 @@ check('전원 재확인 스위치', sw('counter.confirmPower') !== null);
 check('주문 소리 스위치', sw('counter.orderSound') !== null);
 check('저장 전에는 저장됨 표시', txt(q('#counter-note')) === '모두 저장되었습니다',
   txt(q('#counter-note')));
+// .btn 은 모달용이라 width: 100% 다. 설정 화면에서는 글자만큼만 차지해야 한다
+const footBtn = (() => {
+  const re = /\.set-foot \.btn \{([^}]*)\}/;
+  const m = html.match(re);
+  return m ? m[1].replace(/\s+/g, ' ').trim() : null;
+})();
+check('저장 버튼이 가로를 다 먹지 않음', /width: auto/.test(footBtn), footBtn);
+check('여백도 알맞게', /padding: 9px 20px/.test(footBtn), footBtn);
 
 console.log('\n[3] 바꾸면 저장 전이라고 알려 준다');
 click(sw('counter.orderSound'));

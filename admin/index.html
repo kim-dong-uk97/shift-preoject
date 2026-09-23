@@ -533,35 +533,32 @@
   }
   .set-unit { font-size: 12px; font-weight: 700; color: var(--text-sub); }
 
-  /* 저장 바 : 가운데에 띄워 두고 스크롤해도 따라온다.
-     가로를 꽉 채우면 설정 카드와 구분이 안 돼서 폭을 줄여 가운데에 뒀다 */
+  /* 저장 바 : 파란 버튼 자체를 넓은 바로 두고 가운데에 놓는다.
+     스크롤해도 따라와서 카드가 길어져도 바로 누를 수 있다 */
   .set-foot {
     position: sticky;
     bottom: 20px;
     z-index: 10;
-    display: flex; align-items: center; justify-content: space-between; gap: 18px;
-    width: 100%;
-    max-width: 560px;
-    margin: 22px auto 0;
-    padding: 15px 20px;
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    background: #fff;
-    box-shadow: 0 8px 26px rgba(17, 24, 39, 0.12);
+    display: flex; flex-direction: column; align-items: center; gap: 9px;
+    margin-top: 22px;
   }
-  .set-foot.dirty { border-color: var(--danger-line); }
-  .set-foot .set-note { font-size: 13px; }
-  /* .btn 은 모달용이라 width: 100% 다. 바 안에서는 글자만큼만 차지하게 한다 */
   .set-foot .btn {
-    width: auto;
-    flex: 0 0 auto;
-    padding: 11px 30px;
-    font-size: 14px;
+    width: 100%;
+    max-width: 440px;
+    padding: 14px 20px;
+    border-radius: 12px;
+    font-size: 14.5px;
+    box-shadow: 0 8px 22px rgba(77, 129, 245, 0.28);
   }
-  .set-note { font-size: 12px; font-weight: 600; color: var(--text-sub); }
-
-  /* 저장하지 않은 변경이 있으면 눈에 띄게 */
-  .set-foot.dirty .set-note { color: var(--danger); font-weight: 700; }
+  /* 안 저장된 게 있을 때만 알려 준다. 글이 내용 위에 겹치므로 알약으로 둘러싼다 */
+  .set-note {
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: var(--danger-soft);
+    color: var(--danger);
+    font-size: 12px; font-weight: 700;
+  }
+  .set-note.clean { display: none; }
 
   /* ---------- 문의 대화창 ---------- */
   /* 상단 바(알림 아이콘) 바로 밑에 열려야 어디서 나온 창인지 읽힌다.
@@ -6998,11 +6995,11 @@
   }
 
   // 저장 전에는 아직 반영되지 않았다는 걸 알려 준다
+  // 안 저장된 게 있을 때만 알려 준다. 다 저장했다는 건 누른 뒤 알림으로 나온다
   function markSet(which) {
-    var foot = document.getElementById(which + '-save').closest('.set-foot');
     var note = document.getElementById(which + '-note');
-    foot.classList.toggle('dirty', setDirty[which]);
-    note.textContent = setDirty[which] ? '저장하지 않은 변경이 있습니다' : '모두 저장되었습니다';
+    note.textContent = '저장하지 않은 변경이 있습니다';
+    note.classList.toggle('clean', !setDirty[which]);
   }
 
   // ---- 값 읽고 쓰기 ----
@@ -7106,7 +7103,7 @@
       if (err) { toast(err); return; }
       setDirty[p[0]] = false;
       p[2]();
-      toast('설정을 저장했습니다.');
+      toast('모두 저장되었습니다');
     });
   });
 

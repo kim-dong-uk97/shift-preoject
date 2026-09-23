@@ -57,46 +57,38 @@ check('해제 유지 시간', set('counter.lockMin') !== null && set('counter.lo
   set('counter.lockMin') && set('counter.lockMin').value);
 check('전원 재확인 스위치', sw('counter.confirmPower') !== null);
 check('주문 소리 스위치', sw('counter.orderSound') !== null);
-check('저장 전에는 저장됨 표시', txt(q('#counter-note')) === '모두 저장되었습니다',
-  txt(q('#counter-note')));
+// 다 저장된 상태에서는 굳이 알리지 않는다 (누른 뒤 알림으로만 알려 준다)
+check('저장할 게 없으면 안내 숨김', q('#counter-note').classList.contains('clean'));
 // 저장 바 : 스크롤해도 아래에 붙어 있어야 어디서든 바로 저장할 수 있다
-const rule = sel => {
-  const m = html.match(new RegExp('\\' + sel.replace(/[.\s]/g, m => m === '.' ? '\\.' : '\\s') + ' \\{([^}]*)\\}'));
-  return m ? m[1].replace(/\s+/g, ' ').trim() : null;
-};
 const footCss = (html.match(/\n  \.set-foot \{([^}]*)\}/) || [])[1];
 const footBtn = (html.match(/\.set-foot \.btn \{([^}]*)\}/) || [])[1];
 check('아래에 붙는 바', /position: sticky/.test(footCss) && /bottom: 20px/.test(footCss), footCss);
-check('바로 보이게 흰 바탕 · 테두리',
-  /background: #fff/.test(footCss) && /border: 1px solid var\(--border\)/.test(footCss), footCss);
-check('상태는 왼쪽 · 버튼은 오른쪽', /justify-content: space-between/.test(footCss), footCss);
-// 가로를 꽉 채우면 설정 카드와 구분이 안 된다 — 폭을 줄여 가운데에
-check('가운데에 놓임', /margin: 22px auto 0/.test(footCss), footCss);
-check('폭을 줄임', /max-width: 560px/.test(footCss), footCss);
-check('띄워 보이게 그림자', /box-shadow:/.test(footCss), footCss);
-// .btn 은 모달용이라 width: 100% 다. 바 안에서는 글자만큼만 차지해야 한다
-check('저장 버튼이 가로를 다 먹지 않음', /width: auto/.test(footBtn), footBtn);
-check('누르기 편한 크기', /padding: 11px 30px/.test(footBtn), footBtn);
+check('가운데에 놓임', /align-items: center/.test(footCss), footCss);
+// 파란 버튼 자체가 바다 — 따로 흰 상자를 두르지 않는다
+check('상자를 두르지 않음', !/background: #fff/.test(footCss), footCss);
+check('버튼이 넓은 바', /width: 100%/.test(footBtn) && /max-width: 440px/.test(footBtn), footBtn);
+check('누르기 편한 높이', /padding: 14px 20px/.test(footBtn), footBtn);
+check('띄워 보이게 그림자', /box-shadow:/.test(footBtn), footBtn);
 
 console.log('\n[3] 바꾸면 저장 전이라고 알려 준다');
 click(sw('counter.orderSound'));
 check('스위치 꺼짐', sw('counter.orderSound').getAttribute('aria-checked') === 'false');
 check('안 저장됨 표시', txt(q('#counter-note')) === '저장하지 않은 변경이 있습니다',
   txt(q('#counter-note')));
-check('눈에 띄게', q('#counter-save').closest('.set-foot').classList.contains('dirty'));
+check('보이는 상태', !q('#counter-note').classList.contains('clean'));
 click(q('#counter-save'));
-check('저장 알림', toastText().includes('설정을 저장했습니다'), toastText());
-check('표시 원복', txt(q('#counter-note')) === '모두 저장되었습니다');
+check('저장하면 모두 저장되었습니다', toastText().includes('모두 저장되었습니다'), toastText());
+check('안내 다시 숨김', q('#counter-note').classList.contains('clean'));
 check('값 유지', sw('counter.orderSound').getAttribute('aria-checked') === 'false');
 
 console.log('\n[4] 잘못된 값은 막는다');
 typeIn(set('counter.lockMin'), '0');
 click(q('#counter-save'));
 check('0분 차단', toastText().includes('1분 이상'), toastText());
-check('저장 안 됨', txt(q('#counter-note')) === '저장하지 않은 변경이 있습니다');
+check('저장 안 됨', !q('#counter-note').classList.contains('clean'));
 typeIn(set('counter.lockMin'), '10');
 click(q('#counter-save'));
-check('고치면 저장', txt(q('#counter-note')) === '모두 저장되었습니다');
+check('고치면 저장', q('#counter-note').classList.contains('clean'));
 // 저장한 값이 실제 잠금 동작과 안내 문구에 반영돼야 한다
 check('잠금 안내 문구도 10분',
   qa('.ov-desc').every(el => txt(el) === 'PIN을 입력하면 10분간 표시됩니다.'),
@@ -174,7 +166,7 @@ click(q('#config-save'));
 check('형식 틀리면 차단', toastText().includes('10:00 처럼'), toastText());
 typeIn(set('hours.weekOpen'), '11:00');
 click(q('#config-save'));
-check('고치면 저장', txt(q('#config-note')) === '모두 저장되었습니다');
+check('고치면 저장', q('#config-note').classList.contains('clean'));
 
 console.log('\n[9] 매장 정보');
 check('상호', set('store.name').value.length > 0, set('store.name').value);
@@ -185,7 +177,7 @@ click(q('#config-save'));
 check('상호 비우면 차단', toastText().includes('상호를 입력'), toastText());
 typeIn(set('store.name'), 'SHIFT PC 강남점');
 click(q('#config-save'));
-check('되돌리면 저장', txt(q('#config-note')) === '모두 저장되었습니다');
+check('되돌리면 저장', q('#config-note').classList.contains('clean'));
 
 console.log('\n[10] 알림 설정');
 const alertRows = () => [...cards('config-set')[3].querySelectorAll('.set-row')];
@@ -206,7 +198,7 @@ click(q('#config-save'));
 check('알림 시각 형식도 검사', toastText().includes('22:00 처럼'), toastText());
 typeIn(set('alert.minor'), '21:30');
 click(q('#config-save'));
-check('고치면 저장', txt(q('#config-note')) === '모두 저장되었습니다');
+check('고치면 저장', q('#config-note').classList.contains('clean'));
 check('바꾼 시각 유지', set('alert.minor').value === '21:30', set('alert.minor').value);
 click(sw('alert.attend'));
 click(q('#config-save'));

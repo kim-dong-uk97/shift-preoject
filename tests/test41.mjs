@@ -59,14 +59,20 @@ check('전원 재확인 스위치', sw('counter.confirmPower') !== null);
 check('주문 소리 스위치', sw('counter.orderSound') !== null);
 check('저장 전에는 저장됨 표시', txt(q('#counter-note')) === '모두 저장되었습니다',
   txt(q('#counter-note')));
-// .btn 은 모달용이라 width: 100% 다. 설정 화면에서는 글자만큼만 차지해야 한다
-const footBtn = (() => {
-  const re = /\.set-foot \.btn \{([^}]*)\}/;
-  const m = html.match(re);
+// 저장 바 : 스크롤해도 아래에 붙어 있어야 어디서든 바로 저장할 수 있다
+const rule = sel => {
+  const m = html.match(new RegExp('\\' + sel.replace(/[.\s]/g, m => m === '.' ? '\\.' : '\\s') + ' \\{([^}]*)\\}'));
   return m ? m[1].replace(/\s+/g, ' ').trim() : null;
-})();
+};
+const footCss = (html.match(/\n  \.set-foot \{([^}]*)\}/) || [])[1];
+const footBtn = (html.match(/\.set-foot \.btn \{([^}]*)\}/) || [])[1];
+check('아래에 붙는 바', /position: sticky/.test(footCss) && /bottom: 16px/.test(footCss), footCss);
+check('바로 보이게 흰 바탕 · 테두리',
+  /background: #fff/.test(footCss) && /border: 1px solid var\(--border\)/.test(footCss), footCss);
+check('상태는 왼쪽 · 버튼은 오른쪽', /justify-content: space-between/.test(footCss), footCss);
+// .btn 은 모달용이라 width: 100% 다. 바 안에서는 글자만큼만 차지해야 한다
 check('저장 버튼이 가로를 다 먹지 않음', /width: auto/.test(footBtn), footBtn);
-check('여백도 알맞게', /padding: 9px 20px/.test(footBtn), footBtn);
+check('누르기 편한 크기', /padding: 10px 26px/.test(footBtn), footBtn);
 
 console.log('\n[3] 바꾸면 저장 전이라고 알려 준다');
 click(sw('counter.orderSound'));

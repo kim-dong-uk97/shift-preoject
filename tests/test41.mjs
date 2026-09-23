@@ -66,13 +66,17 @@ const rule = sel => {
 };
 const footCss = (html.match(/\n  \.set-foot \{([^}]*)\}/) || [])[1];
 const footBtn = (html.match(/\.set-foot \.btn \{([^}]*)\}/) || [])[1];
-check('아래에 붙는 바', /position: sticky/.test(footCss) && /bottom: 16px/.test(footCss), footCss);
+check('아래에 붙는 바', /position: sticky/.test(footCss) && /bottom: 20px/.test(footCss), footCss);
 check('바로 보이게 흰 바탕 · 테두리',
   /background: #fff/.test(footCss) && /border: 1px solid var\(--border\)/.test(footCss), footCss);
 check('상태는 왼쪽 · 버튼은 오른쪽', /justify-content: space-between/.test(footCss), footCss);
+// 가로를 꽉 채우면 설정 카드와 구분이 안 된다 — 폭을 줄여 가운데에
+check('가운데에 놓임', /margin: 22px auto 0/.test(footCss), footCss);
+check('폭을 줄임', /max-width: 560px/.test(footCss), footCss);
+check('띄워 보이게 그림자', /box-shadow:/.test(footCss), footCss);
 // .btn 은 모달용이라 width: 100% 다. 바 안에서는 글자만큼만 차지해야 한다
 check('저장 버튼이 가로를 다 먹지 않음', /width: auto/.test(footBtn), footBtn);
-check('누르기 편한 크기', /padding: 10px 26px/.test(footBtn), footBtn);
+check('누르기 편한 크기', /padding: 11px 30px/.test(footBtn), footBtn);
 
 console.log('\n[3] 바꾸면 저장 전이라고 알려 준다');
 click(sw('counter.orderSound'));

@@ -1,0 +1,632 @@
+"use client";
+
+import { useEffect, useRef } from "react";
+import { useSeason, WIND_EVENT, type Season } from "@/lib/season";
+
+/* ------------------------------------------------------------------ */
+/* 계절별 설정                                                          */
+/* ------------------------------------------------------------------ */
+
+const INK = "#1e120a";
+
+type SpriteDef = { rows: string[]; colors: string[] };
+
+/** 떨어져서 쌓이는 계절(봄·가을·겨울) 설정 */
+type PileProfile = {
+  type: "pile";
+  px: number;
+  sprites: SpriteDef[];
+  /** 스프라이트의 o(외곽선)·h(하이라이트) 색 */
+  outline: string;
+  highlight: string;
+  maxMoving: number;
+  spawnMs: [number, number];
+  vy: [number, number];
+  terminal: number;
+  amp: [number, number];
+  /** 떨어지며 뒤집히는 간격(ms). 0이면 뒤집히지 않음 */
+  flutterMs: [number, number];
+  /** 착지했을 때 그냥 굴러가 버릴 확률 */
+  rollRate: number;
+  rollSpeed: [number, number];
+  /** 구를 때 90도씩 회전 */
+  tumble: boolean;
+  maxPerBox: number;
+  maxLayers: number;
+  layerPx: number;
+  /** 채팅 바람 한 번에 날아가는 개수 */
+  blow: [number, number];
+};
+
+/** 여름 비 설정 */
+type RainProfile = { type: "rain"; maxDrops: number; perSecond: number; vy: [number, number]; slant: number };
+
+const MAPLE = ["....o....", "...oxo...", ".o.oxo.o.", "oxooxooxo", "oxxxhxxxo", ".oxxxxxo.", "..oxxxo..", "...ooo...", "....o...."];
+const GINKGO = [".........", ".ooo.ooo.", "oxxxoxxxo", "oxxhxxxxo", ".oxxxxxo.", "..oxxxo..", "...oxo...", "....o....", "....o...."];
+const PETAL = [".oo..", "oxxo.", "oxhxo", ".oxxo", "..oo."];
+const PETAL_S = [".oo.", "oxxo", "oxho", ".oo."];
+const FLAKE = [".x.", "xhx", ".x."];
+const FLAKE_DOT = ["x"];
+const FLAKE_SQ = ["xx", "xx"];
+
+const PROFILES: Record<Season, PileProfile | RainProfile> = {
+  autumn: {
+    type: "pile",
+    px: 2,
+    sprites: [
+      { rows: MAPLE, colors: ["#c0492f", "#d9582c", "#e07a2e"] },
+      { rows: GINKGO, colors: ["#f2c94c", "#e9b73a"] },
+    ],
+    outline: INK,
+    highlight: "#fff1c4",
+    maxMoving: 9,
+    spawnMs: [800, 1500],
+    vy: [24, 40],
+    terminal: 46,
+    amp: [8, 20],
+    flutterMs: [400, 800],
+    rollRate: 0.22,
+    rollSpeed: [30, 55],
+    tumble: true,
+    maxPerBox: 120,
+    maxLayers: 7,
+    layerPx: 4,
+    blow: [3, 4],
+  },
+  spring: {
+    type: "pile",
+    px: 2,
+    sprites: [
+      { rows: PETAL, colors: ["#f7b6c8", "#f9c9d6", "#f4a3bb"] },
+      { rows: PETAL_S, colors: ["#fbd3de", "#f7b6c8"] },
+    ],
+    outline: "#b8567a",
+    highlight: "#fff0f4",
+    maxMoving: 16,
+    spawnMs: [350, 700],
+    vy: [16, 28],
+    terminal: 32,
+    amp: [14, 30],
+    flutterMs: [300, 600],
+    rollRate: 0.25,
+    rollSpeed: [25, 45],
+    tumble: true,
+    maxPerBox: 160,
+    maxLayers: 4,
+    layerPx: 3,
+    blow: [5, 7],
+  },
+  winter: {
+    type: "pile",
+    px: 2,
+    sprites: [
+      { rows: FLAKE, colors: ["#f5f7ff", "#e4ecf7"] },
+      { rows: FLAKE_DOT, colors: ["#f5f7ff", "#dfe8f5"] },
+      { rows: FLAKE_SQ, colors: ["#f5f7ff", "#e8eef8"] },
+    ],
+    outline: INK,
+    highlight: "#ffffff",
+    maxMoving: 45,
+    spawnMs: [90, 200],
+    vy: [18, 34],
+    terminal: 40,
+    amp: [4, 14],
+    flutterMs: [0, 0],
+    rollRate: 0.04,
+    rollSpeed: [15, 25],
+    tumble: false,
+    maxPerBox: 450,
+    maxLayers: 5,
+    layerPx: 2,
+    blow: [10, 14],
+  },
+  summer: { type: "rain", maxDrops: 110, perSecond: 70, vy: [520, 680], slant: -50 },
+};
+
+/* ------------------------------------------------------------------ */
+/* 공통 도구                                                            */
+/* ------------------------------------------------------------------ */
+
+const GUST_MS = 1800;
+const GUST_FORCE = 140; // px/s
+const EDGE = 6; // 이 거리 안쪽 가장자리에 떨어지면 굴러떨어짐
+const SINK = 4; // 착지 시 윗면 테두리에 살짝 파묻히는 최대 정도
+/** 작은 것(눈송이)은 덜 파묻혀야 보임 */
+const sinkOf = (size: number) => Math.min(SINK, Math.round(size / 3));
+/** 폭이 좁은 상자(뽑기 간판·BEST 제목판)는 잘 안 맞으니 일부를 그 위에서 떨어뜨림 */
+const SMALL_PERCH_W = 200;
+const SMALL_PERCH_RATE = 0.12;
+/** 위 상자 뒤로 지나가 아래쪽 상자(BEST 도구·메뉴판 등)에 내려앉는 비율 */
+const BEHIND_RATE = 0.4;
+
+const rand = (a: number, b: number) => a + Math.random() * (b - a);
+const pick = <T,>(arr: T[]) => arr[Math.floor(Math.random() * arr.length)];
+
+/** 90도씩 돌린 4방향 (정사각 스프라이트 기준) */
+const rotate = (rows: string[]) => rows.map((_, r) => rows.map((row) => row[r]).reverse().join(""));
+const rotations = (rows: string[]) => {
+  const out = [rows];
+  for (let i = 1; i < 4; i++) out.push(rotate(out[i - 1]));
+  return out;
+};
+
+// 모양·색·방향별 스프라이트를 한 번만 그려 두고 재사용 (많이 쌓여도 가볍게)
+const spriteCache = new Map<string, HTMLCanvasElement>();
+function sprite(p: PileProfile, kind: number, color: string, rot: number) {
+  const key = `${p.outline}|${kind}|${color}|${rot}|${p.sprites[kind].rows.join("")}`;
+  let c = spriteCache.get(key);
+  if (!c) {
+    const rows = rotations(p.sprites[kind].rows)[rot];
+    c = document.createElement("canvas");
+    c.width = rows[0].length * p.px;
+    c.height = rows.length * p.px;
+    const sctx = c.getContext("2d")!;
+    rows.forEach((row, r) =>
+      [...row].forEach((ch, col) => {
+        if (ch === ".") return;
+        sctx.fillStyle = ch === "o" ? p.outline : ch === "h" ? p.highlight : color;
+        sctx.fillRect(col * p.px, r * p.px, p.px, p.px);
+      }),
+    );
+    spriteCache.set(key, c);
+  }
+  return c;
+}
+
+type Box = { left: number; right: number; top: number; bottom: number };
+
+type Particle = {
+  kind: number;
+  size: number;
+  color: string;
+  x: number;
+  y: number;
+  vy: number;
+  baseX: number;
+  amp: number;
+  phase: number;
+  rot: number;
+  rotAt: number;
+  state: "fall" | "roll";
+  box: number;
+  dir: number;
+  speed: number;
+  rollLeft: number;
+  lift: number;
+  /** 바람에 받은 추가 가로 속도(px/s), 점점 줄어듦 */
+  vx: number;
+  /** 바람에 밀려 통통 튀며 굴러가는 중 */
+  hop: boolean;
+  /** 위 상자들 뒤로 지나가 내려앉을 상자 (-1: 없음, -2: 목표를 놓쳐 끝까지 뒤로 떨어짐) */
+  behind: number;
+};
+
+/** 쌓인 것: 수명 없이 남아 있다가 바람에만 떨어짐 */
+type Rest = { box: number; relX: number; lift: number; kind: number; size: number; color: string; rot: number };
+
+type Drop = { x: number; y: number; len: number; vy: number };
+type Splash = { x: number; y: number; vx: number; vy: number; life: number };
+
+/* ------------------------------------------------------------------ */
+/* 컴포넌트                                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 계절 효과: 봄 벚꽃 / 여름 비 / 가을 낙엽 / 겨울 눈.
+ * [data-leaf-perch] 상자를 장애물로 취급 (윗면에 쌓이거나 굴러떨어짐, 비는 튐).
+ * 가로 범위: [data-leaf-bound="left"]의 오른쪽 ~ [data-leaf-bound="right"]의 왼쪽.
+ * [data-leaf-wind] 상자 위에 쌓인 것은 채팅 바람(WIND_EVENT)에 몇 개씩 날아감.
+ */
+export default function SeasonEffects({ stageId }: { stageId: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { season, on } = useSeason();
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    if (!on || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+    const profile = PROFILES[season];
+    const moving: Particle[] = [];
+    const resting: Rest[] = [];
+    const drops: Drop[] = [];
+    const splashes: Splash[] = [];
+    let raf = 0;
+    let last = performance.now();
+    let nextSpawn = last + 300;
+    let rainCarry = 0;
+    let cw = 0;
+    let ch = 0;
+    let gustStart = -Infinity;
+    let gustDir = 1;
+    let blowQueue: [number, Rest][] = [];
+    let streaks: { x: number; y: number; len: number; speed: number }[] = [];
+
+    const spawnRange = () => {
+      const stage = document.getElementById(stageId)?.getBoundingClientRect();
+      const leftEl = document.querySelector<HTMLElement>('[data-leaf-bound="left"]');
+      const rightEl = document.querySelector<HTMLElement>('[data-leaf-bound="right"]');
+      let left = stage ? stage.left : 0;
+      let right = stage ? stage.right : window.innerWidth;
+      // 사이드바는 fixed라 offsetParent가 항상 null → 실제로 보이는지는 크기로 판단
+      const lr = leftEl?.getBoundingClientRect();
+      if (lr && lr.width > 0 && lr.height > 0) left = Math.min(left, lr.right + 8);
+      if (rightEl && stage) {
+        const r = rightEl.getBoundingClientRect();
+        // 오른쪽 열이 가운데 옆에 나란히 있을 때만 그 앞까지 확장
+        if (r.left > stage.right - 1) right = Math.max(right, r.left - 8);
+      }
+      return { left: Math.max(0, left), right: Math.min(window.innerWidth, right) };
+    };
+
+    const onWind = () => {
+      const now = performance.now();
+      gustStart = now;
+      gustDir = Math.random() < 0.5 ? -1 : 1;
+      const els = [...document.querySelectorAll<HTMLElement>("[data-leaf-perch]")];
+      // 바람결은 쌓이는 윗면(대화창) 바로 위를 스쳐 지나감
+      const target = els.find((el) => el.dataset.leafWind === "true")?.getBoundingClientRect();
+      const range = spawnRange();
+      const spanL = target ? target.left : range.left;
+      const spanR = target ? target.right : range.right;
+      const topY = target ? target.top : 80;
+      streaks = Array.from({ length: 6 }, () => {
+        const len = rand(40, 90);
+        return {
+          x: gustDir > 0 ? spanL - len - rand(0, 160) : spanR + rand(0, 160),
+          y: topY - rand(4, 44),
+          len,
+          speed: gustDir * rand(520, 780),
+        };
+      });
+      blowQueue = [];
+      if (profile.type !== "pile") return;
+      // 바람 부는 쪽 가장자리에 가까운 것 중 몇 개만 골라 시간차를 두고 날려 보냄
+      const windBox = els.map((el) => el.dataset.leafWind === "true");
+      const gap = (r: Rest) => (gustDir > 0 ? els[r.box].getBoundingClientRect().width - r.relX : r.relX);
+      const count = Math.round(rand(profile.blow[0], profile.blow[1]));
+      const candidates = resting
+        .filter((r) => windBox[r.box])
+        .sort((a, b) => gap(a) - gap(b))
+        .slice(0, count * 2);
+      for (let i = 0; i < count && candidates.length; i++) {
+        const r = candidates.splice(Math.floor(Math.random() * candidates.length), 1)[0];
+        blowQueue.push([now + rand(0, 500), r]);
+      }
+    };
+    window.addEventListener(WIND_EVENT, onWind);
+
+    const liftAt = (p: PileProfile, boxIdx: number, relX: number, size: number) =>
+      Math.min(resting.filter((r) => r.box === boxIdx && Math.abs(r.relX - relX) < size * 0.6).length, p.maxLayers) * p.layerPx;
+    const boxFull = (p: PileProfile, boxIdx: number) => resting.filter((r) => r.box === boxIdx).length >= p.maxPerBox;
+
+    const frame = (now: number) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      const t = now / 1000;
+
+      const dpr = window.devicePixelRatio || 1;
+      if (cw !== window.innerWidth || ch !== window.innerHeight) {
+        cw = window.innerWidth;
+        ch = window.innerHeight;
+        canvas.width = Math.round(cw * dpr);
+        canvas.height = Math.round(ch * dpr);
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = false;
+      ctx.clearRect(0, 0, cw, ch);
+
+      const boxes: Box[] = [...document.querySelectorAll<HTMLElement>("[data-leaf-perch]")].map((el) => {
+        const r = el.getBoundingClientRect();
+        return { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+      });
+
+      // 바람 세기: 불기 시작해 커졌다가 잦아듦
+      const gp = (now - gustStart) / GUST_MS;
+      const wind = gp >= 0 && gp <= 1 ? Math.sin(Math.PI * gp) * GUST_FORCE * gustDir : 0;
+
+      if (profile.type === "rain") stepRain(profile, dt, boxes, wind);
+      else stepPile(profile, now, t, dt, boxes, wind);
+
+      // 바람결: 옅은 도트 선이 가로로 스쳐 지나감
+      if (wind !== 0) {
+        ctx.globalAlpha = Math.min(0.5, Math.abs(wind) / GUST_FORCE);
+        ctx.fillStyle = "#f3e3c3";
+        for (const s of streaks) {
+          s.x += s.speed * dt;
+          for (let d = 0; d < s.len; d += 6) ctx.fillRect(Math.round(s.x + d), Math.round(s.y), 4, 2);
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      raf = requestAnimationFrame(frame);
+    };
+
+    /* ---------- 여름: 비 ---------- */
+    function stepRain(p: RainProfile, dt: number, boxes: Box[], wind: number) {
+      const range = spawnRange();
+      rainCarry += p.perSecond * dt;
+      while (rainCarry >= 1 && drops.length < p.maxDrops) {
+        rainCarry -= 1;
+        drops.push({ x: rand(range.left, range.right + 120), y: rand(-60, -10), len: rand(8, 14), vy: rand(p.vy[0], p.vy[1]) });
+      }
+      rainCarry = Math.min(rainCarry, 1);
+      const vx = p.slant + wind * 1.6;
+      ctx!.fillStyle = "#9fc3e8";
+      ctx!.globalAlpha = 0.7;
+      for (let i = drops.length - 1; i >= 0; i--) {
+        const d = drops[i];
+        const prevY = d.y + d.len;
+        d.y += d.vy * dt;
+        d.x += vx * dt;
+        const bottom = d.y + d.len;
+        let hit = bottom > ch;
+        for (const b of boxes) {
+          if (d.x > b.left && d.x < b.right && prevY <= b.top && bottom >= b.top) {
+            hit = true;
+            // 윗면에 부딪혀 물방울이 튐
+            for (let k = 0; k < 3; k++) splashes.push({ x: d.x, y: b.top - 2, vx: rand(-80, 80), vy: -rand(60, 130), life: 0.35 });
+            break;
+          }
+        }
+        if (hit) {
+          drops.splice(i, 1);
+          continue;
+        }
+        // 살짝 기울어진 도트 빗줄기
+        const slope = vx / d.vy;
+        for (let s = 0; s < d.len; s += 2) ctx!.fillRect(Math.round(d.x + slope * s), Math.round(d.y + s), 2, 2);
+      }
+      ctx!.fillStyle = "#cfe3f7";
+      for (let i = splashes.length - 1; i >= 0; i--) {
+        const s = splashes[i];
+        s.life -= dt;
+        if (s.life <= 0) {
+          splashes.splice(i, 1);
+          continue;
+        }
+        s.vy += 600 * dt;
+        s.x += s.vx * dt;
+        s.y += s.vy * dt;
+        ctx!.globalAlpha = Math.min(0.8, s.life * 3);
+        ctx!.fillRect(Math.round(s.x), Math.round(s.y), 2, 2);
+      }
+      ctx!.globalAlpha = 1;
+    }
+
+    /* ---------- 봄·가을·겨울: 떨어져서 쌓임 ---------- */
+    function stepPile(p: PileProfile, now: number, t: number, dt: number, boxes: Box[], wind: number) {
+      // 바람에 날아가는 쌓인 것: 윗면을 따라 통통 튀며 굴러가다 가장자리에서 떨어짐
+      blowQueue = blowQueue.filter(([at, r]) => {
+        if (now < at) return true;
+        const idx = resting.indexOf(r);
+        const box = boxes[r.box];
+        if (idx < 0 || !box) return false;
+        resting.splice(idx, 1);
+        const x = box.left + r.relX;
+        moving.push({
+          kind: r.kind,
+          size: r.size,
+          color: r.color,
+          x,
+          y: box.top - r.size + sinkOf(r.size),
+          vy: 0,
+          baseX: x,
+          amp: rand(3, 8),
+          phase: rand(0, Math.PI * 2),
+          rot: r.rot,
+          rotAt: now,
+          state: "roll",
+          box: r.box,
+          dir: gustDir,
+          speed: rand(170, 240),
+          rollLeft: Infinity,
+          lift: 0,
+          vx: gustDir * rand(60, 110),
+          hop: true,
+          behind: -1,
+        });
+        return false;
+      });
+
+      // 생성
+      if (now >= nextSpawn && moving.length < p.maxMoving) {
+        const range = spawnRange();
+        const kind = Math.floor(Math.random() * p.sprites.length);
+        const size = p.sprites[kind].rows.length * p.px;
+        if (range.right - range.left > size) {
+          let x = rand(range.left, range.right - size);
+          const small = boxes.filter((b) => b.right - b.left < SMALL_PERCH_W && b.top > 0 && b.left >= range.left - size && b.right <= range.right + size);
+          let smallIdx = -1;
+          if (small.length && Math.random() < SMALL_PERCH_RATE) {
+            const b = pick(small);
+            smallIdx = boxes.indexOf(b);
+            x = rand(b.left, Math.max(b.left, b.right - size));
+          }
+          // 일부는 위 상자에 가려진 아래쪽 상자를 목표로 뒤로 지나감
+          let behind = -1;
+          if (Math.random() < BEHIND_RATE) {
+            const cx = x + size / 2;
+            const covered = boxes
+              .map((_, i) => i)
+              .filter((i) => {
+                const b = boxes[i];
+                if (!(cx > b.left + 4 && cx < b.right - 4)) return false;
+                return boxes.some((o, j) => j !== i && o.bottom <= b.top && cx > o.left && cx < o.right);
+              });
+            if (covered.length) behind = pick(covered);
+          }
+          // 좁은 상자를 겨냥했는데 위가 가려져 있으면 뒤로 지나가 그 상자에 내려앉음
+          if (smallIdx >= 0) {
+            const b = boxes[smallIdx];
+            const cx = x + size / 2;
+            const hidden = boxes.some((o, j) => j !== smallIdx && o.bottom <= b.top && cx > o.left && cx < o.right);
+            behind = hidden ? smallIdx : -1;
+          }
+          moving.push({
+            kind,
+            size,
+            color: pick(p.sprites[kind].colors),
+            x,
+            y: -size,
+            vy: rand(p.vy[0], p.vy[1]),
+            baseX: x,
+            amp: rand(p.amp[0], p.amp[1]),
+            phase: rand(0, Math.PI * 2),
+            rot: Math.random() < 0.5 ? 0 : 2,
+            rotAt: now + rand(p.flutterMs[0], p.flutterMs[1]),
+            state: "fall",
+            box: -1,
+            dir: 1,
+            speed: 0,
+            rollLeft: 0,
+            lift: 0,
+            vx: 0,
+            hop: false,
+            behind,
+          });
+        }
+        nextSpawn = now + rand(p.spawnMs[0], p.spawnMs[1]);
+      }
+
+      const fullLift = p.maxLayers * p.layerPx;
+
+      for (let i = moving.length - 1; i >= 0; i--) {
+        const f = moving[i];
+        const S = f.size;
+
+        if (f.state === "fall") {
+          const prevBottom = f.y + S;
+          f.vy = Math.min(f.vy + 60 * dt, p.terminal);
+          f.y += f.vy * dt;
+          f.baseX += (wind + f.vx) * dt; // 평소엔 좌우 흔들림만 (한쪽으로 쏠리지 않게)
+          f.vx *= Math.max(0, 1 - 1.2 * dt);
+          f.x = f.baseX + Math.sin(t * 1.1 + f.phase) * f.amp;
+          if (p.flutterMs[1] > 0 && now >= f.rotAt) {
+            f.rot = f.rot === 0 ? 2 : 0; // 살랑살랑 뒤집힘 (옆으로 누운 모양은 구를 때만)
+            f.rotAt = now + rand(p.flutterMs[0], p.flutterMs[1]);
+          }
+
+          // 부딪힐 상자 찾기 (뒤로 지나가는 것은 목표 상자 윗면만)
+          let landed = -1;
+          if (f.behind >= 0) {
+            const box = boxes[f.behind];
+            if (!box) f.behind = -2;
+            else if (prevBottom <= box.top + 0.5 && f.y + S >= box.top) {
+              if (f.x + S > box.left + 1 && f.x < box.right - 1) landed = f.behind;
+              else f.behind = -2;
+            }
+          } else if (f.behind === -1) {
+            for (let b = 0; b < boxes.length; b++) {
+              const box = boxes[b];
+              if (!(f.x + S > box.left + 1 && f.x < box.right - 1)) continue;
+              if (prevBottom <= box.top + 0.5 && f.y + S >= box.top) {
+                landed = b;
+                break;
+              }
+              if (f.y + S > box.top + sinkOf(S) && f.y < box.bottom) {
+                // 옆면에 닿으면 밖으로 밀어내고 옆을 따라 떨어짐
+                f.x = f.x + S / 2 < (box.left + box.right) / 2 ? box.left - S : box.right;
+                f.amp *= 0.4;
+                f.baseX = f.x - Math.sin(t * 1.1 + f.phase) * f.amp;
+              }
+            }
+          }
+
+          if (landed >= 0) {
+            // 윗면 착지 → 쌓이거나 굴러감
+            const box = boxes[landed];
+            f.behind = -1;
+            const relX = f.x - box.left;
+            const lift = liftAt(p, landed, relX, S);
+            const nearEdge = relX < EDGE || box.right - (f.x + S) < EDGE;
+            if (lift >= fullLift || boxFull(p, landed) || nearEdge || Math.random() < p.rollRate) {
+              f.state = "roll";
+              f.box = landed;
+              f.lift = lift;
+              f.dir = nearEdge ? (relX < EDGE ? -1 : 1) : Math.random() < 0.5 ? -1 : 1;
+              f.speed = rand(p.rollSpeed[0], p.rollSpeed[1]);
+              f.rollLeft = nearEdge ? Infinity : rand(10, 50);
+              f.y = box.top - S + sinkOf(S) - lift;
+            } else {
+              resting.push({ box: landed, relX, lift, kind: f.kind, size: S, color: f.color, rot: f.rot % 2 ? 0 : f.rot });
+              moving.splice(i, 1);
+              continue;
+            }
+          }
+          if (f.y > ch + S) moving.splice(i, 1);
+        } else {
+          // 구르는 중: 윗면을 따라 이동
+          const box = boxes[f.box];
+          if (!box) {
+            moving.splice(i, 1);
+            continue;
+          }
+          const step = f.dir * f.speed * dt;
+          f.x += step;
+          f.rollLeft -= Math.abs(step);
+          f.y = box.top - S + sinkOf(S) - f.lift - (f.hop ? Math.abs(Math.sin(now / 110 + f.phase)) * 10 : 0);
+          if (p.tumble && now >= f.rotAt) {
+            f.rot = (f.rot + (f.dir > 0 ? 1 : 3)) % 4;
+            f.rotAt = now + 90;
+          }
+          const cx = f.x + S / 2;
+          if (cx < box.left || cx > box.right) {
+            // 가장자리에서 굴러떨어짐
+            f.state = "fall";
+            f.vy = 18;
+            f.amp = rand(3, 8);
+            f.x = f.dir > 0 ? box.right : box.left - S;
+            f.baseX = f.x - Math.sin(t * 1.1 + f.phase) * f.amp;
+            f.box = -1;
+            f.rot = f.rot % 2 ? 0 : f.rot;
+          } else if (f.rollLeft <= 0) {
+            // 조금 구르다 멈춰서 쌓임 (그 자리가 꽉 찼으면 더 굴러감)
+            const relX = f.x - box.left;
+            const lift = liftAt(p, f.box, relX, S);
+            if (lift >= fullLift || boxFull(p, f.box)) f.rollLeft = rand(20, 60);
+            else {
+              resting.push({ box: f.box, relX, lift, kind: f.kind, size: S, color: f.color, rot: f.rot % 2 ? 0 : f.rot });
+              moving.splice(i, 1);
+            }
+          }
+        }
+      }
+
+      // 쌓인 것 (상자를 따라 움직이고, 바람에 날려 가기 전까지 계속 남음)
+      for (let i = resting.length - 1; i >= 0; i--) {
+        const r = resting[i];
+        const box = boxes[r.box];
+        if (!box) {
+          resting.splice(i, 1);
+          continue;
+        }
+        ctx!.drawImage(sprite(p, r.kind, r.color, r.rot), Math.round(box.left + r.relX), Math.round(box.top - r.size + sinkOf(r.size) - r.lift));
+      }
+      // 뒤로 지나가는 것은 상자 영역을 잘라내고 그려 상자에 가려진 것처럼 보이게
+      const draw = (f: Particle) => ctx!.drawImage(sprite(p, f.kind, f.color, f.rot), Math.round(f.x), Math.round(f.y));
+      const back = moving.filter((f) => f.behind !== -1);
+      if (back.length) {
+        ctx!.save();
+        ctx!.beginPath();
+        ctx!.rect(0, 0, cw, ch);
+        for (const b of boxes) ctx!.rect(b.left, b.top, b.right - b.left, b.bottom - b.top);
+        ctx!.clip("evenodd");
+        back.forEach(draw);
+        ctx!.restore();
+      }
+      moving.filter((f) => f.behind === -1).forEach(draw);
+    }
+
+    raf = requestAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener(WIND_EVENT, onWind);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    };
+  }, [stageId, season, on]);
+
+  return <canvas ref={canvasRef} aria-hidden="true" className="pointer-events-none fixed inset-0 z-20 h-full w-full" />;
+}

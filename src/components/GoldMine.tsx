@@ -16,6 +16,8 @@ import GachaModal from "./GachaModal";
 
 /** 뽑기권 지급 간격(초) */
 const TICKET_INTERVAL = 30 * 60;
+/** 처음부터 주는 기본 뽑기권 */
+const STARTER_TICKETS = 2;
 const STORAGE_KEY = "aurora.mining.seconds";
 const USED_KEY = "aurora.gacha.used";
 const SEGMENTS = 10;
@@ -74,14 +76,14 @@ export default function GoldMine() {
 
   const ready = seconds !== null;
   const sec = seconds ?? 0;
-  // 보유 뽑기권 = 누적 지급 - 사용
-  const tickets = Math.max(0, Math.floor(sec / TICKET_INTERVAL) - used);
+  // 보유 뽑기권 = 기본 지급 + 사용시간 지급 - 사용
+  const tickets = Math.max(0, STARTER_TICKETS + Math.floor(sec / TICKET_INTERVAL) - used);
   const progress = (sec % TICKET_INTERVAL) / TICKET_INTERVAL;
   const remain = TICKET_INTERVAL - (sec % TICKET_INTERVAL);
   const filled = Math.floor(progress * SEGMENTS);
 
   const spendTicket = () => {
-    if (Math.floor(secRef.current / TICKET_INTERVAL) - usedRef.current <= 0) return false;
+    if (STARTER_TICKETS + Math.floor(secRef.current / TICKET_INTERVAL) - usedRef.current <= 0) return false;
     usedRef.current += 1;
     saveNumber(USED_KEY, usedRef.current);
     setUsed(usedRef.current);
@@ -94,7 +96,7 @@ export default function GoldMine() {
   }, []);
 
   return (
-    <section className="relative shrink-0" style={pixelFrame("wood", 3)} aria-label="사용시간 금광">
+    <section data-leaf-perch className="relative shrink-0" style={pixelFrame("wood", 3)} aria-label="사용시간 금광">
       {/*
         뽑기 간판 (틀 바깥)
         xl: 왼쪽 벽에서 쇠 막대가 튀어나오고 사슬에 간판이 매달림
@@ -108,7 +110,9 @@ export default function GoldMine() {
             <span className="h-4 w-[3px] bg-[#a8a29a]" />
           </div>
           <button ref={signRef} type="button" onClick={() => setOpen(true)} aria-label={`뽑기 열기 (보유 뽑기권 ${tickets}장)`} className="relative">
-            <span className="px-btn block bg-red px-2 py-1 text-xs text-cream">뽑기</span>
+            <span data-leaf-perch className="px-btn block bg-red px-2 py-1 text-xs text-cream">
+              뽑기
+            </span>
             {tickets > 0 && (
               <span className="absolute -right-2.5 -top-2.5 border-2 border-ink bg-gold px-1 text-[9px] leading-3 text-ink" aria-hidden="true">
                 {tickets}

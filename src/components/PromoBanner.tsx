@@ -5,7 +5,7 @@ import PixelSprite from "./PixelSprite";
 /** 게시판에 붙은 의뢰서 느낌의 배너 */
 export default function PromoBanner() {
   return (
-    <section className="relative flex shrink-0 flex-col gap-3 px-5 py-4 text-ink short:py-3 md:flex-row md:items-center md:gap-6 md:px-6" style={pixelFrame("parchment", 3)}>
+    <section data-leaf-perch className="relative flex shrink-0 flex-col gap-3 px-5 py-4 text-ink short:py-3 md:flex-row md:items-center md:gap-6 md:px-6" style={pixelFrame("parchment", 3)}>
       {/* 압정 */}
       <PixelSprite rows={gemRows} palette={{ o: INK, x: "var(--color-red)", h: "#ffb0a0" }} scale={3} className="absolute -top-4 left-1/2 -translate-x-1/2" />
 

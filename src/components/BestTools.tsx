@@ -8,13 +8,13 @@ import MenuIcon from "./MenuIcon";
 export default function BestTools() {
   return (
     <section className="mt-2 shrink-0 xl:mt-5 short:mt-1">
-      <h2 className="mx-auto mb-8 short:mb-6 w-fit px-5 py-1 text-base text-gold" style={pixelFrame("wood", 2)}>
+      <h2 data-leaf-perch className="mx-auto mb-8 short:mb-6 w-fit px-5 py-1 text-base text-gold" style={pixelFrame("wood", 2)}>
         BEST AI 도구
       </h2>
 
       <div className="grid gap-12 md:grid-cols-3 md:gap-5">
         {toolCategories.map((cat) => (
-          <article key={cat.title} className="relative flex flex-col px-4 pb-3 pt-7" style={pixelFrame("chalkboard", 3)}>
+          <article key={cat.title} data-leaf-perch className="relative flex flex-col px-4 pb-3 pt-7" style={pixelFrame("chalkboard", 3)}>
             {/* 메뉴판 위에 걸린 이름표 */}
             <header
               className="absolute -top-6 left-1/2 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap px-3 py-1 text-ink"

@@ -5,7 +5,7 @@ import PixelIcon from "./PixelIcon";
 
 export default function RecommendedVideos() {
   return (
-    <aside className="flex flex-col xl:min-h-0 xl:flex-1" style={pixelFrame("wood", 3)}>
+    <aside data-leaf-perch className="flex flex-col xl:min-h-0 xl:flex-1" style={pixelFrame("wood", 3)}>
       <header className="flex items-center gap-2 border-b-4 border-ink px-3 py-3 short:py-2">
         <span className="animate-candle text-gold" aria-hidden="true">
           ✦

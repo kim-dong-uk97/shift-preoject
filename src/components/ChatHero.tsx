@@ -1,49 +1,21 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
 import WavyBorder from "./WavyBorder";
 import PixelSprite from "./PixelSprite";
 import PixelIcon from "./PixelIcon";
 import CharacterPicker from "./CharacterPicker";
+import TypeLine from "./TypeLine";
+import { WIND_EVENT } from "@/lib/season";
 import { exclaimRows, INK, questionRows } from "@/lib/sprites";
-import { characters, defaultCharacter, subjectParticle, type Character } from "@/data/characters";
+import { defaultCharacter, subjectParticle, type Character } from "@/data/characters";
+import { DEMO_DELAY_MS, DEMO_REPLY, GREETING, loadNpc, saveNpc, type ChatMessage as Message } from "@/lib/chat";
 import { pixelFrame } from "@/lib/pixel";
-
-type Message = { role: "npc" | "user"; text: string };
-
-const GREETING = "반갑습니다, 모험가님! 무엇이든 물어보세요 :)";
-// AI 연동 전 임시 응답
-const DEMO_REPLY = "좋은 질문이에요! 지금은 연습용 대답이라, 진짜 AI 연결은 곧 준비할게요.";
 
 // 대사 한 줄 높이(px). 로그 높이·스크롤 단위를 모두 이 값의 배수로 맞춰 줄이 잘려 보이지 않게 함
 const LINE = 24;
 const VISIBLE_LINES = 6;
-const NPC_KEY = "aurora.npc";
-
-/** 게임 대사처럼 한 글자씩 출력 */
-function TypeLine({ text, showCaret }: { text: string; showCaret: boolean }) {
-  const [count, setCount] = useState(0);
-
-  useEffect(() => {
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const step = reduced ? text.length : 1;
-    const id = setInterval(() => {
-      setCount((c) => {
-        if (c >= text.length) clearInterval(id);
-        return Math.min(c + step, text.length);
-      });
-    }, 35);
-    return () => clearInterval(id);
-  }, [text]);
-
-  const done = count >= text.length;
-  return (
-    <>
-      {text.slice(0, count)}
-      {done && showCaret && <span className="animate-caret ml-1 inline-block text-red">▼</span>}
-    </>
-  );
-}
 
 /** RPG 하단 대화창: 왼쪽 NPC 초상화 + 오른쪽 대사 로그 + 하단 입력 */
 export default function ChatHero({ className = "" }: { className?: string }) {
@@ -55,24 +27,13 @@ export default function ChatHero({ className = "" }: { className?: string }) {
 
   // 저장해 둔 NPC 불러오기 (첫 렌더는 기본 캐릭터로 맞춰 하이드레이션 불일치 방지)
   useEffect(() => {
-    const t = setTimeout(() => {
-      try {
-        const saved = characters.find((c) => c.id === localStorage.getItem(NPC_KEY));
-        if (saved) setNpc(saved);
-      } catch {
-        // 저장소 접근 불가 시 기본 캐릭터 유지
-      }
-    }, 0);
+    const t = setTimeout(() => setNpc(loadNpc()), 0);
     return () => clearTimeout(t);
   }, []);
 
   const selectNpc = (c: Character) => {
     setNpc(c);
-    try {
-      localStorage.setItem(NPC_KEY, c.id);
-    } catch {
-      // 저장 불가 시 이번 방문 동안만 유지
-    }
+    saveNpc(c);
     setPickerOpen(false);
     nameplateRef.current?.focus();
   };
@@ -145,20 +106,33 @@ export default function ChatHero({ className = "" }: { className?: string }) {
     const text = input.trim();
     if (!text || pending) return;
     stickToBottom.current = true;
+    window.dispatchEvent(new Event(WIND_EVENT));
     setMessages((m) => [...m, { role: "user", text }]);
     setInput("");
     setPending(true);
     timer.current = setTimeout(() => {
       setMessages((m) => [...m, { role: "npc", text: DEMO_REPLY }]);
       setPending(false);
-    }, 2200);
+    }, DEMO_DELAY_MS);
   };
 
   const lastIndex = messages.length - 1;
 
   return (
-    <section className={`relative flex flex-col p-4 ${className}`}>
+    <section
+      data-leaf-perch
+      // 전송 순간 바람이 불어 위에 쌓인 낙엽 3~4장이 날아감
+      data-leaf-wind="true"
+      className={`relative flex flex-col p-4 ${className}`}
+    >
       <h1 className="sr-only">aurora 홈</h1>
+      {/* 메인은 맛보기 — 제대로 된 대화는 AI Agent 화면에서 */}
+      <Link
+        href="/agent"
+        className="px-btn absolute right-4 top-3 z-10 bg-parch px-2 py-0.5 text-[11px] hover:bg-gold"
+      >
+        크게 대화하기 ↗
+      </Link>
       {/* 생각하는 동안에만 테두리를 따라 물결이 돌아감 (입력 중에는 움직임 없음) */}
       <WavyBorder amplitude={pending ? 4 : 0} grid={4} fill="var(--color-parch)" strokeWidth={4} />
 
@@ -201,7 +175,7 @@ export default function ChatHero({ className = "" }: { className?: string }) {
         <div
           ref={logRef}
           onScroll={onScroll}
-          className="no-scrollbar min-w-0 flex-1 overflow-y-auto text-[15px] text-ink"
+          className="no-scrollbar min-w-0 flex-1 overflow-y-auto pr-28 text-[15px] text-ink"
           style={{ height: LINE * VISIBLE_LINES, lineHeight: `${LINE}px` }}
         >
           <div ref={contentRef} className="flex flex-col">

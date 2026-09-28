@@ -38,9 +38,9 @@ export const toolCategories: ToolCategory[] = [
 ];
 
 export const bestVideos: Video[] = [
-  { title: "내 PC에 나만의 AI 만들기", views: "9만", tags: ["AI 자동화", "AI 만들기"], thumb: "/thumbnails/my-pc-ai.png" },
-  { title: "요즘 난리 난 AI 오픈클로 비트코인 자동 매매 놀라운 수익화", views: "10만", tags: ["AI 자동화", "비트코인"], thumb: "/thumbnails/openclaw-bitcoin.png" },
-  { title: "왕초보도 혼자 가능한 딱 3일 만에 AI공부 끝내기!", views: "15만", tags: ["AI 배우기", "AI 자동화"], thumb: "/thumbnails/ai-study-3days.png" },
-  { title: "5초만에 원하는 이미지 만들기!", views: "12만", tags: ["AI 배우기", "AI 생성"], thumb: "/thumbnails/ai-image-5sec.png" },
-  { title: "AI 쇼츠영상 너무 쉽다 10분만에 마스터 하는 방법", views: "41만", tags: ["AI 자동화", "AI 영상"], thumb: "/thumbnails/ai-shorts-10min.png" },
+  { title: "내 PC에 나만의 AI 만들기", views: "90만", tags: ["AI 자동화", "AI 만들기"], thumb: "/thumbnails/my-pc-ai.png" },
+  { title: "요즘 난리 난 AI 오픈클로 비트코인 자동 매매 놀라운 수익화", views: "100만", tags: ["AI 자동화", "비트코인"], thumb: "/thumbnails/openclaw-bitcoin.png" },
+  { title: "왕초보도 혼자 가능한 딱 3일 만에 AI공부 끝내기!", views: "150만", tags: ["AI 배우기", "AI 자동화"], thumb: "/thumbnails/ai-study-3days.png" },
+  { title: "5초만에 원하는 이미지 만들기!", views: "120만", tags: ["AI 배우기", "AI 생성"], thumb: "/thumbnails/ai-image-5sec.png" },
+  { title: "AI 쇼츠영상 너무 쉽다 10분만에 마스터 하는 방법", views: "410만", tags: ["AI 자동화", "AI 영상"], thumb: "/thumbnails/ai-shorts-10min.png" },
 ];

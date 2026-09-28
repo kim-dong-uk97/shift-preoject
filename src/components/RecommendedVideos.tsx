@@ -10,7 +10,11 @@ export default function RecommendedVideos() {
         <span className="animate-candle text-gold" aria-hidden="true">
           ✦
         </span>
-        <h2 className="text-base text-gold">인기 BEST 추천영상</h2>
+        <h2 className="min-w-0 flex-1 truncate text-sm text-gold">인기 BEST 추천영상</h2>
+        {/* TODO(TBD): 이동할 영상 목록 페이지(또는 채널) 미정 */}
+        <a href="#" className="px-btn shrink-0 whitespace-nowrap bg-gold px-2 py-0.5 text-[11px] text-ink">
+          영상 더보기
+        </a>
       </header>
 
       <ul className="grid gap-4 short:gap-2 p-3 sm:grid-cols-2 lg:grid-cols-3 no-scrollbar xl:flex xl:flex-1 xl:flex-col xl:justify-between xl:overflow-y-auto">

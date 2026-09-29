@@ -132,10 +132,14 @@ const PROFILES: Record<Season, PileProfile | RainProfile> = {
 
 const GUST_MS = 1800;
 const GUST_FORCE = 140; // px/s
-/** 많이 쌓였을수록 바람에 더 많이 떨어짐: 기본 개수 + 쌓인 양 비례, 최대 개수 */
+/** 봄·가을: 많이 쌓였을수록 바람에 더 많이 떨어짐 (기본 개수 + 쌓인 수 비례, 최대 개수) */
 const BLOW_EXTRA_RATE = 0.15; // 쌓인 낱개 수 대비
-const BLOW_PER_SNOW = 90; // 눈 덮개 높이 합(px) 이만큼마다 한 덩이 추가
 const BLOW_MAX = 60;
+/** 겨울: 바람 한 번에 쌓인 눈 중 날아가는 비율, 깎이는 데 걸리는 시간, 눈송이 하나당 깎인 양(px) */
+const SNOW_BLOW_RATIO = 0.6;
+const SNOW_SWEEP_MS = 1000;
+const SNOW_PER_FLAKE = 10;
+const SNOW_FLAKES_MAX = 90;
 const EDGE = 6; // 이 거리 안쪽 가장자리에 떨어지면 굴러떨어짐
 const SINK = 4; // 착지 시 윗면 테두리에 살짝 파묻히는 최대 정도
 /** 작은 것(눈송이)은 덜 파묻혀야 보임 */
@@ -253,7 +257,10 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
     // 눈 덮개: 상자별로 2px 칸마다 쌓인 높이
     const COL = 2;
     const caps = new Map<number, Float32Array>();
-    let capBlowQueue: [number, number][] = []; // [시각, 상자]
+    // 바람에 쓸려 가는 눈: 상자별 남은 양과 깎는 속도
+    let capSweeps: { b: number; start: number; remaining: number; rate: number }[] = [];
+    let sweepFlakeCarry = 0;
+    let sweepFlakes = 0;
     const capOf = (b: number, box: Box) => {
       const cols = Math.max(1, Math.round((box.right - box.left) / COL));
       let arr = caps.get(b);
@@ -339,13 +346,17 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
       blowQueue = [];
       if (profile.type !== "pile") return;
       if (profile.cap) {
-        // 눈 덮개가 있는 상자들을 돌아가며 조금씩 깎아 냄
-        const withSnow = [...caps.entries()].filter(([, arr]) => arr.some((h) => h >= 3)).map(([b]) => b);
-        let snow = 0;
-        for (const arr of caps.values()) for (const h of arr) snow += h;
-        const count = Math.min(BLOW_MAX, Math.round(rand(profile.blow[0], profile.blow[1]) + snow / BLOW_PER_SNOW));
-        capBlowQueue = [];
-        for (let i = 0; i < count && withSnow.length; i++) capBlowQueue.push([now + rand(0, 700), withSnow[i % withSnow.length]]);
+        // 상자마다 쌓인 눈의 60%를 바람 부는 쪽 가장자리부터 쓸어 냄
+        capSweeps = [];
+        sweepFlakeCarry = 0;
+        sweepFlakes = 0;
+        for (const [b, arr] of caps) {
+          let total = 0;
+          for (const h of arr) total += h;
+          if (total < 4) continue;
+          const remaining = total * SNOW_BLOW_RATIO;
+          capSweeps.push({ b, start: now + rand(0, 200), remaining, rate: remaining / (SNOW_SWEEP_MS / 1000) });
+        }
         return;
       }
       // 모든 상자에서 골고루: 상자별로 바람 부는 쪽 가장자리에 가까운 순으로 줄 세운 뒤 돌아가며 한 개씩
@@ -469,53 +480,54 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
 
     /* ---------- 봄·가을·겨울: 떨어져서 쌓임 ---------- */
     function stepPile(p: PileProfile, now: number, t: number, dt: number, boxes: Box[], wind: number) {
-      // 눈 덮개가 바람에 깎여 눈송이로 날아감 (바람 부는 쪽 가장자리부터)
-      if (p.cap) {
-        capBlowQueue = capBlowQueue.filter(([at, b]) => {
-          if (now < at) return true;
-          const box = boxes[b];
+      // 눈 덮개가 바람에 쓸려 날아감: 바람 부는 쪽 가장자리부터 깎고, 깎인 만큼 눈송이가 튀며 굴러 떨어짐
+      if (p.cap && capSweeps.length) {
+        capSweeps = capSweeps.filter((sw) => {
+          if (now < sw.start) return true;
+          const box = boxes[sw.b];
           if (!box) return false;
-          const arr = capOf(b, box);
-          let c = -1;
-          for (let k = 0; k < arr.length; k++) {
+          const arr = capOf(sw.b, box);
+          let budget = Math.min(sw.remaining, sw.rate * dt);
+          sw.remaining -= budget;
+          for (let k = 0; k < arr.length && budget > 0; k++) {
             const i = gustDir > 0 ? arr.length - 1 - k : k;
-            if (arr[i] >= 3) {
-              c = i;
-              break;
+            if (arr[i] <= 0) continue;
+            const take = Math.min(arr[i], budget);
+            arr[i] -= take;
+            budget -= take;
+            sweepFlakeCarry += take;
+            // 깎인 양만큼 눈송이 생성 (한 번 바람에 최대 개수 제한)
+            while (sweepFlakeCarry >= SNOW_PER_FLAKE && sweepFlakes < SNOW_FLAKES_MAX) {
+              sweepFlakeCarry -= SNOW_PER_FLAKE;
+              sweepFlakes++;
+              const kind = Math.floor(Math.random() * p.sprites.length);
+              const size = p.sprites[kind].rows.length * p.px;
+              const x = box.left + i * COL - size / 2;
+              moving.push({
+                kind,
+                size,
+                color: pick(p.sprites[kind].colors),
+                x,
+                y: box.top - arr[i] - size,
+                vy: 0,
+                baseX: x,
+                amp: rand(3, 8),
+                phase: rand(0, Math.PI * 2),
+                rot: 0,
+                rotAt: now,
+                state: "roll",
+                box: sw.b,
+                dir: gustDir,
+                speed: rand(170, 260),
+                rollLeft: Infinity,
+                lift: 0,
+                vx: gustDir * rand(60, 120),
+                hop: true,
+                behind: -1,
+              });
             }
           }
-          if (c < 0) return false;
-          const h = arr[c];
-          for (let d = -3; d <= 3; d++) {
-            const i = c + d;
-            if (i >= 0 && i < arr.length) arr[i] = Math.max(0, arr[i] - 5 * (1 - Math.abs(d) / 4));
-          }
-          const kind = Math.floor(Math.random() * p.sprites.length);
-          const size = p.sprites[kind].rows.length * p.px;
-          const x = box.left + c * COL - size / 2;
-          moving.push({
-            kind,
-            size,
-            color: pick(p.sprites[kind].colors),
-            x,
-            y: box.top - h - size,
-            vy: 0,
-            baseX: x,
-            amp: rand(3, 8),
-            phase: rand(0, Math.PI * 2),
-            rot: 0,
-            rotAt: now,
-            state: "roll",
-            box: b,
-            dir: gustDir,
-            speed: rand(170, 240),
-            rollLeft: Infinity,
-            lift: 0,
-            vx: gustDir * rand(60, 110),
-            hop: true,
-            behind: -1,
-          });
-          return false;
+          return sw.remaining > 0.5;
         });
       }
 

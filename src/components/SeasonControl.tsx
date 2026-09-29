@@ -11,9 +11,11 @@ const OPTIONS: { id: Season; label: string; rows: string[]; palette: Record<stri
   { id: "winter", label: "겨울 · 눈", rows: ["x.x.x", ".xxx.", "xxxxx", ".xxx.", "x.x.x"], palette: { x: "#f5f7ff" } },
 ];
 
-/** 계절 효과 선택 + 켜기/끄기. layout: 사이드바(세로) / 모바일 헤더(가로) */
+const TREE = { rows: ["..y..", ".xxx.", "xxxxx", ".xxx.", "xxxxx", "..b.."], palette: { x: "#3f8a4a", y: "#f2c94c", b: "#8a5530" } };
+
+/** 계절 효과 선택 + 켜기/끄기 + 크리스마스 한정 장식. layout: 사이드바(세로) / 모바일 헤더(가로) */
 export default function SeasonControl({ layout }: { layout: "sidebar" | "header" }) {
-  const { season, on } = useSeason();
+  const { season, on, xmas } = useSeason();
   const vertical = layout === "sidebar";
 
   return (
@@ -43,6 +45,17 @@ export default function SeasonControl({ layout }: { layout: "sidebar" | "header"
         className={`px-btn px-1.5 py-0.5 text-[10px] ${on ? "bg-cream" : "bg-wood-dark text-cream/70"}`}
       >
         효과 {on ? "ON" : "OFF"}
+      </button>
+      {/* 크리스마스 한정: 대화창 전구·선물·Merry Christmas 장식 */}
+      <button
+        type="button"
+        aria-pressed={xmas}
+        title="크리스마스 한정 장식"
+        onClick={() => setSeasonState({ xmas: !xmas })}
+        className={`px-btn flex items-center gap-1 px-1.5 py-0.5 text-[10px] ${xmas ? "bg-red text-cream" : "bg-wood-dark text-cream/80 hover:bg-wood"}`}
+      >
+        <PixelSprite rows={TREE.rows} palette={TREE.palette} scale={2} />
+        X-MAS
       </button>
     </div>
   );

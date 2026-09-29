@@ -16,12 +16,12 @@ export type Prize = {
 
 // TODO(TBD): 상품 구성·확률은 예시값. 운영 확정 후 서버에서 내려받도록 교체 필요
 export const prizes: Prize[] = [
-  { id: "cola", name: "콜라", desc: "편의점 콜라 교환권", sprite: "can", colors: { r: "#c0492f", w: "#efe6d2" }, rarity: "common", weight: 4 },
+  { id: "cola", name: "콜라", desc: "편의점 콜라 교환권", sprite: "can", colors: { r: "#c0492f", w: "#efe6d2" }, rarity: "common", weight: 10 },
   { id: "energy", name: "에너지 드링크", desc: "편의점 에너지 드링크 교환권", sprite: "can", colors: { r: "#6a9a3c", w: "#f2e27a" }, rarity: "common", weight: 3 },
-  { id: "coffee", name: "아메리카노", desc: "카페 아메리카노 교환권", sprite: "coffee", colors: { s: "#efe6d2", b: "#8a5530" }, rarity: "rare", weight: 3 },
+  { id: "coffee", name: "아메리카노", desc: "카페 아메리카노 교환권", sprite: "coffee", colors: { s: "#efe6d2", b: "#8a5530" }, rarity: "rare", weight: 10 },
   { id: "pc1", name: "PC방 1시간", desc: "PC방 1시간 이용 쿠폰", sprite: "monitor", colors: { b: "#4f7fbf", c: "#bfe0ff" }, rarity: "rare", weight: 7 },
   { id: "pc3", name: "PC방 3시간", desc: "PC방 3시간 이용 쿠폰", sprite: "monitor", colors: { b: "#8d5fb0", c: "#f2b544" }, rarity: "legend", weight: 3 },
-  { id: "miss", name: "꽝", desc: "다음 기회에!", sprite: "miss", colors: { x: "#8a7a66" }, rarity: "miss", weight: 80 },
+  { id: "miss", name: "꽝", desc: "다음 기회에!", sprite: "miss", colors: { x: "#8a7a66" }, rarity: "miss", weight: 67 },
 ];
 
 export const rarityInfo: Record<Rarity, { label: string; className: string }> = {

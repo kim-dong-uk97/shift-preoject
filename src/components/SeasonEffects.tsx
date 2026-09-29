@@ -251,14 +251,16 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
     let cw = 0;
     let ch = 0;
     let gustStart = -Infinity;
-    let gustDir = 1;
+    // 바람은 가운데에서 양쪽 바깥으로 갈라져 붊 (이 x보다 왼쪽은 왼쪽으로, 오른쪽은 오른쪽으로)
+    let windCenter = 0;
+    const outward = (x: number) => (x < windCenter ? -1 : 1);
     let blowQueue: [number, Rest][] = [];
 
     // 눈 덮개: 상자별로 2px 칸마다 쌓인 높이
     const COL = 2;
     const caps = new Map<number, Float32Array>();
     // 바람에 쓸려 가는 눈: 상자별 남은 양과 깎는 속도
-    let capSweeps: { b: number; start: number; remaining: number; rate: number }[] = [];
+    let capSweeps: { b: number; side: -1 | 1; start: number; remaining: number; rate: number }[] = [];
     let sweepFlakeCarry = 0;
     let sweepFlakes = 0;
     const capOf = (b: number, box: Box) => {
@@ -328,25 +330,29 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
     const onWind = () => {
       const now = performance.now();
       gustStart = now;
-      gustDir = Math.random() < 0.5 ? -1 : 1;
+      const range = spawnRange();
+      windCenter = (range.left + range.right) / 2;
       const rects = [...document.querySelectorAll<HTMLElement>("[data-leaf-perch]")].map((el) => el.getBoundingClientRect());
-      // 바람결: 화면에 보이는 모든 상자 윗면 바로 위를 스쳐 지나감
+      // 바람결: 보이는 상자마다 가운데에서 양쪽 바깥으로 퍼져 나감
       const visible = rects.filter((r) => r.bottom > 0 && r.top < window.innerHeight && r.width > 0);
       streaks = visible.flatMap((r) =>
-        Array.from({ length: r.width > 400 ? 3 : 1 }, () => {
-          const len = Math.min(rand(40, 90), r.width);
-          return {
-            x: gustDir > 0 ? r.left - len - rand(0, 120) : r.right + rand(0, 120),
-            y: r.top - rand(4, 30),
-            len,
-            speed: gustDir * rand(520, 780),
-          };
-        }),
+        ([-1, 1] as const).flatMap((side) =>
+          Array.from({ length: r.width > 400 ? 2 : 1 }, () => {
+            const len = Math.min(rand(40, 90), r.width / 2);
+            const mid = (r.left + r.right) / 2;
+            return {
+              x: side > 0 ? mid + rand(0, r.width / 6) : mid - len - rand(0, r.width / 6),
+              y: r.top - rand(4, 30),
+              len,
+              speed: side * rand(520, 780),
+            };
+          }),
+        ),
       );
       blowQueue = [];
       if (profile.type !== "pile") return;
       if (profile.cap) {
-        // 상자마다 쌓인 눈의 60%를 바람 부는 쪽 가장자리부터 쓸어 냄
+        // 상자마다 쌓인 눈의 60%를 양쪽 가장자리에서 절반씩 쓸어 냄
         capSweeps = [];
         sweepFlakeCarry = 0;
         sweepFlakes = 0;
@@ -354,13 +360,14 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
           let total = 0;
           for (const h of arr) total += h;
           if (total < 4) continue;
-          const remaining = total * SNOW_BLOW_RATIO;
-          capSweeps.push({ b, start: now + rand(0, 200), remaining, rate: remaining / (SNOW_SWEEP_MS / 1000) });
+          const half = (total * SNOW_BLOW_RATIO) / 2;
+          const start = now + rand(0, 200);
+          for (const side of [-1, 1] as const) capSweeps.push({ b, side, start, remaining: half, rate: half / (SNOW_SWEEP_MS / 1000) });
         }
         return;
       }
-      // 모든 상자에서 골고루: 상자별로 바람 부는 쪽 가장자리에 가까운 순으로 줄 세운 뒤 돌아가며 한 개씩
-      const gap = (r: Rest) => (gustDir > 0 ? rects[r.box].width - r.relX : r.relX);
+      // 모든 상자에서 골고루: 상자별로 양쪽 가장자리 중 가까운 쪽에 가까운 순으로 줄 세운 뒤 돌아가며 한 개씩
+      const gap = (r: Rest) => Math.min(r.relX, rects[r.box].width - r.relX - r.size);
       const perBox = new Map<number, Rest[]>();
       for (const r of resting) {
         if (!rects[r.box]) continue;
@@ -407,7 +414,8 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
 
       // 바람 세기: 불기 시작해 커졌다가 잦아듦
       const gp = (now - gustStart) / GUST_MS;
-      const wind = gp >= 0 && gp <= 1 ? Math.sin(Math.PI * gp) * GUST_FORCE * gustDir : 0;
+      // 세기만 담고, 방향은 위치에 따라 바깥쪽(outward)으로
+      const wind = gp >= 0 && gp <= 1 ? Math.sin(Math.PI * gp) * GUST_FORCE : 0;
 
       if (profile.type === "rain") stepRain(profile, dt, boxes, wind);
       else stepPile(profile, now, t, dt, boxes, wind);
@@ -435,12 +443,13 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
         drops.push({ x: rand(range.left, range.right + 120), y: rand(-60, -10), len: rand(8, 14), vy: rand(p.vy[0], p.vy[1]) });
       }
       rainCarry = Math.min(rainCarry, 1);
-      const vx = p.slant + wind * 1.6;
       ctx!.fillStyle = "#9fc3e8";
       ctx!.globalAlpha = 0.7;
       for (let i = drops.length - 1; i >= 0; i--) {
         const d = drops[i];
         const prevY = d.y + d.len;
+        // 채팅 바람이 불면 위치에 따라 바깥쪽으로 더 기울어짐
+        const vx = p.slant + wind * 1.6 * outward(d.x);
         d.y += d.vy * dt;
         d.x += vx * dt;
         const bottom = d.y + d.len;
@@ -490,7 +499,7 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
           let budget = Math.min(sw.remaining, sw.rate * dt);
           sw.remaining -= budget;
           for (let k = 0; k < arr.length && budget > 0; k++) {
-            const i = gustDir > 0 ? arr.length - 1 - k : k;
+            const i = sw.side > 0 ? arr.length - 1 - k : k;
             if (arr[i] <= 0) continue;
             const take = Math.min(arr[i], budget);
             arr[i] -= take;
@@ -517,11 +526,11 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
                 rotAt: now,
                 state: "roll",
                 box: sw.b,
-                dir: gustDir,
+                dir: sw.side,
                 speed: rand(170, 260),
                 rollLeft: Infinity,
                 lift: 0,
-                vx: gustDir * rand(60, 120),
+                vx: sw.side * rand(60, 120),
                 hop: true,
                 behind: -1,
               });
@@ -539,6 +548,7 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
         if (idx < 0 || !box) return false;
         resting.splice(idx, 1);
         const x = box.left + r.relX;
+        const dir = x + r.size / 2 < (box.left + box.right) / 2 ? -1 : 1;
         moving.push({
           kind: r.kind,
           size: r.size,
@@ -553,11 +563,11 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
           rotAt: now,
           state: "roll",
           box: r.box,
-          dir: gustDir,
+          dir,
           speed: rand(170, 240),
           rollLeft: Infinity,
           lift: 0,
-          vx: gustDir * rand(60, 110),
+          vx: dir * rand(60, 110),
           hop: true,
           behind: -1,
         });
@@ -634,7 +644,7 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
           const prevBottom = f.y + S;
           f.vy = Math.min(f.vy + 60 * dt, p.terminal);
           f.y += f.vy * dt;
-          f.baseX += (wind + f.vx) * dt; // 평소엔 좌우 흔들림만 (한쪽으로 쏠리지 않게)
+          f.baseX += (wind * outward(f.x) + f.vx) * dt; // 평소엔 좌우 흔들림만 (한쪽으로 쏠리지 않게)
           f.vx *= Math.max(0, 1 - 1.2 * dt);
           f.x = f.baseX + Math.sin(t * 1.1 + f.phase) * f.amp;
           if (p.flutterMs[1] > 0 && now >= f.rotAt) {

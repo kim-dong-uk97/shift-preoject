@@ -4,12 +4,15 @@ import { gemRows, INK } from "@/lib/sprites";
 import PixelSprite from "./PixelSprite";
 import PixelIcon from "./PixelIcon";
 import MenuIcon from "./MenuIcon";
+import PlaqueXmas from "./PlaqueXmas";
 
 export default function BestTools() {
   return (
     <section className="mt-2 shrink-0 xl:mt-5 short:mt-1">
-      <h2 data-leaf-perch className="mx-auto mb-8 short:mb-6 w-fit px-5 py-1 text-base text-gold" style={pixelFrame("wood", 2)}>
+      <h2 data-leaf-perch className="relative mx-auto mb-8 short:mb-6 w-fit px-5 py-1 text-base text-gold" style={pixelFrame("wood", 2)}>
         BEST AI 도구
+        {/* 크리스마스 모드: 화환 + 별 */}
+        <PlaqueXmas />
       </h2>
 
       <div className="grid gap-12 md:grid-cols-3 md:gap-5">

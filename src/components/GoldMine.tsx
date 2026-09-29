@@ -13,13 +13,36 @@ import {
 } from "@/lib/sprites";
 import PixelSprite from "./PixelSprite";
 import GachaModal from "./GachaModal";
+import { useSeason } from "@/lib/season";
 
 /** 뽑기권 지급 간격(초) */
 const TICKET_INTERVAL = 30 * 60;
 /** 처음부터 주는 기본 뽑기권 */
 const STARTER_TICKETS = 2;
+/** 사용시간은 이 주기(초)까지 쌓이면 0으로 초기화 (현재 1시간) */
+const CYCLE = 60 * 60;
 const STORAGE_KEY = "aurora.mining.seconds";
+/** 사용시간으로 받은 뽑기권 누적 (사용시간이 초기화돼도 유지) */
+const EARNED_KEY = "aurora.mining.earned";
 const USED_KEY = "aurora.gacha.used";
+
+/** 간판 위 작은 트리 (11x13) — y: 별, g: 잎, r/b: 장식, t: 줄기 */
+const TREE = [
+  ".....y.....",
+  "....yyy....",
+  ".....g.....",
+  "....ggg....",
+  "...ggrgg...",
+  "....ggg....",
+  "...ggggg...",
+  "..ggbgggg..",
+  "...ggggg...",
+  "..ggggygg..",
+  ".ggrgggggg.",
+  "....ttt....",
+  "...ttttt...",
+];
+const TREE_PALETTE = { y: "#f2c94c", g: "#3f8a4a", r: "#e84a3c", b: "#4f8fe0", t: "#6b4420" };
 const SEGMENTS = 10;
 
 function readNumber(key: string) {
@@ -41,32 +64,57 @@ function saveNumber(key: string, value: number) {
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /**
- * 사용시간 금광: 탭이 보이는 동안 1초씩 쌓이고 30분마다 뽑기권 1장.
+ * 사용시간 금광: 탭이 보이는 동안 1초씩 쌓이고 30분마다 뽑기권 1장. 1시간이 되면 사용시간은 0으로 초기화.
  * TODO(TBD): 실제 지급·사용은 서버 기록 기준으로 바꿔야 함 (현재는 브라우저 저장소)
  */
 export default function GoldMine() {
   const [seconds, setSeconds] = useState<number | null>(null);
   const [popKey, setPopKey] = useState(0);
   const [used, setUsed] = useState(0);
+  const [earned, setEarned] = useState(0);
   const [open, setOpen] = useState(false);
+  const { xmas } = useSeason();
   const secRef = useRef(0);
   const usedRef = useRef(0);
+  const earnedRef = useRef(0);
   const signRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     secRef.current = readNumber(STORAGE_KEY);
     usedRef.current = readNumber(USED_KEY);
+    let earnedSaved: string | null = null;
+    try {
+      earnedSaved = localStorage.getItem(EARNED_KEY);
+    } catch {
+      // 저장소 접근 불가
+    }
+    if (earnedSaved === null) {
+      // 이전 방식(사용시간 누적)에서 넘어옴: 받은 뽑기권은 옮기고 사용시간은 주기 안으로
+      earnedRef.current = Math.floor(secRef.current / TICKET_INTERVAL);
+      secRef.current %= CYCLE;
+      saveNumber(EARNED_KEY, earnedRef.current);
+      saveNumber(STORAGE_KEY, secRef.current);
+    } else {
+      earnedRef.current = Number(earnedSaved) || 0;
+    }
     const id = setInterval(() => {
       if (document.visibilityState !== "visible") return;
       secRef.current += 1;
+      if (secRef.current % TICKET_INTERVAL === 0) {
+        earnedRef.current += 1;
+        saveNumber(EARNED_KEY, earnedRef.current);
+        setEarned(earnedRef.current);
+        setPopKey((k) => k + 1);
+      }
+      if (secRef.current >= CYCLE) secRef.current = 0; // 1시간이 되면 초기화
       saveNumber(STORAGE_KEY, secRef.current);
       setSeconds(secRef.current);
-      if (secRef.current % TICKET_INTERVAL === 0) setPopKey((k) => k + 1);
     }, 1000);
     // 첫 화면은 저장된 값으로 바로 표시
     const init = setTimeout(() => {
       setSeconds(secRef.current);
       setUsed(usedRef.current);
+      setEarned(earnedRef.current);
     }, 0);
     return () => {
       clearInterval(id);
@@ -76,14 +124,14 @@ export default function GoldMine() {
 
   const ready = seconds !== null;
   const sec = seconds ?? 0;
-  // 보유 뽑기권 = 기본 지급 + 사용시간 지급 - 사용
-  const tickets = Math.max(0, STARTER_TICKETS + Math.floor(sec / TICKET_INTERVAL) - used);
+  // 보유 뽑기권 = 기본 지급 + 사용시간으로 받은 것 - 사용
+  const tickets = Math.max(0, STARTER_TICKETS + earned - used);
   const progress = (sec % TICKET_INTERVAL) / TICKET_INTERVAL;
   const remain = TICKET_INTERVAL - (sec % TICKET_INTERVAL);
   const filled = Math.floor(progress * SEGMENTS);
 
   const spendTicket = () => {
-    if (STARTER_TICKETS + Math.floor(secRef.current / TICKET_INTERVAL) - usedRef.current <= 0) return false;
+    if (STARTER_TICKETS + earnedRef.current - usedRef.current <= 0) return false;
     usedRef.current += 1;
     saveNumber(USED_KEY, usedRef.current);
     setUsed(usedRef.current);
@@ -110,6 +158,15 @@ export default function GoldMine() {
             <span className="h-4 w-[3px] bg-[#a8a29a]" />
           </div>
           <button ref={signRef} type="button" onClick={() => setOpen(true)} aria-label={`뽑기 열기 (보유 뽑기권 ${tickets}장)`} className="relative">
+            {/* 크리스마스 모드: 간판 위 작은 트리 */}
+            {xmas && (
+              <PixelSprite
+                rows={TREE}
+                palette={TREE_PALETTE}
+                scale={2}
+                className="pointer-events-none absolute bottom-[calc(100%-1px)] left-1/2 -translate-x-1/2"
+              />
+            )}
             <span data-leaf-perch className="px-btn block bg-red px-2 py-1 text-xs text-cream">
               뽑기
             </span>

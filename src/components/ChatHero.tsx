@@ -7,7 +7,8 @@ import PixelSprite from "./PixelSprite";
 import PixelIcon from "./PixelIcon";
 import CharacterPicker from "./CharacterPicker";
 import TypeLine from "./TypeLine";
-import { WIND_EVENT } from "@/lib/season";
+import ChristmasDecor from "./ChristmasDecor";
+import { useSeason, WIND_EVENT } from "@/lib/season";
 import { exclaimRows, INK, questionRows } from "@/lib/sprites";
 import { defaultCharacter, subjectParticle, type Character } from "@/data/characters";
 import { DEMO_DELAY_MS, DEMO_REPLY, GREETING, loadNpc, saveNpc, type ChatMessage as Message } from "@/lib/chat";
@@ -21,6 +22,7 @@ const VISIBLE_LINES = 6;
 export default function ChatHero({ className = "" }: { className?: string }) {
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
+  const { xmas } = useSeason();
   const [npc, setNpc] = useState<Character>(defaultCharacter);
   const [pickerOpen, setPickerOpen] = useState(false);
   const nameplateRef = useRef<HTMLButtonElement>(null);
@@ -133,6 +135,8 @@ export default function ChatHero({ className = "" }: { className?: string }) {
       </Link>
       {/* 생각하는 동안에만 테두리를 따라 물결이 돌아감 (입력 중에는 움직임 없음) */}
       <WavyBorder amplitude={pending ? 4 : 0} grid={4} fill="var(--color-parch)" strokeWidth={4} />
+      {/* 크리스마스 한정 장식 (사이드바 X-MAS 버튼) */}
+      {xmas && <ChristmasDecor />}
 
       <div className="relative flex gap-4">
         {/* NPC 초상화 */}

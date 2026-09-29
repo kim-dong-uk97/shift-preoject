@@ -1,61 +1,75 @@
-import { toolCategories } from "@/data/home";
+import type { CSSProperties } from "react";
+import { toolGroups } from "@/data/home";
 import { pixelFrame } from "@/lib/pixel";
-import { gemRows, INK } from "@/lib/sprites";
+import { INK } from "@/lib/sprites";
 import PixelSprite from "./PixelSprite";
-import PixelIcon from "./PixelIcon";
 import MenuIcon from "./MenuIcon";
 import PlaqueXmas from "./PlaqueXmas";
 
+/** 액자 모서리 금 장식 (왼쪽 위 기준, 나머지 모서리는 뒤집어 씀) */
+const CORNER = ["oyyyo", "yhyo.", "yyo..", "yo...", "o...."];
+const CORNER_PALETTE = { o: INK, y: "#e8b94a", h: "#fff1c4" };
+const CORNERS = [
+  "left-0 top-0",
+  "right-0 top-0 -scale-x-100",
+  "bottom-0 left-0 -scale-y-100",
+  "bottom-0 right-0 -scale-100",
+];
+
+/** BEST AI 도구: 벽에 걸린 금박 액자 3개 (오피스 스위트 · 빌드 스위트 · 콘텐츠 제작) */
 export default function BestTools() {
   return (
     <section className="mt-2 shrink-0 xl:mt-5 short:mt-1">
-      <h2 data-leaf-perch className="relative mx-auto mb-8 short:mb-6 w-fit px-5 py-1 text-base text-gold" style={pixelFrame("wood", 2)}>
+      <h2 data-leaf-perch className="relative mx-auto mb-10 w-fit px-5 py-1 text-base text-gold short:mb-8" style={pixelFrame("wood", 2)}>
         BEST AI 도구
-        {/* 크리스마스 모드: 화환 + 별 */}
+        {/* 크리스마스 모드: 화환 */}
         <PlaqueXmas />
       </h2>
 
-      <div className="grid gap-12 md:grid-cols-3 md:gap-5">
-        {toolCategories.map((cat) => (
-          <article key={cat.title} data-leaf-perch className="relative flex flex-col px-4 pb-3 pt-7" style={pixelFrame("chalkboard", 3)}>
-            {/* 메뉴판 위에 걸린 이름표 */}
+      <div className="grid gap-12 md:grid-cols-3 md:gap-6">
+        {toolGroups.map((group) => (
+          <article key={group.title} data-leaf-perch className="relative px-3 pb-3 pt-7" style={pixelFrame("gilded", 3)}>
+            {/* 걸이: 못 + 명판까지 이어진 줄 */}
+            <svg aria-hidden="true" width="96" height="14" className="pointer-events-none absolute -top-[30px] left-1/2 -translate-x-1/2 overflow-visible">
+              <path d="M18 14 L48 3 L78 14" fill="none" stroke="#b9965e" strokeWidth="2" />
+              <rect x="44" y="-1" width="8" height="8" fill={INK} />
+              <rect x="46" y="1" width="4" height="4" fill="#c9a25a" />
+            </svg>
+
+            {/* 황동 명판 (낙엽이 명판 위에도 쌓이도록 장애물로 등록) */}
             <header
-              className="absolute -top-6 left-1/2 flex -translate-x-1/2 items-center gap-2 whitespace-nowrap px-3 py-1 text-ink"
-              style={pixelFrame("parchment", 2)}
+              data-leaf-perch
+              className="absolute -top-4 left-1/2 -translate-x-1/2 whitespace-nowrap px-3 py-0.5 text-ink"
+              style={{
+                background: "linear-gradient(#f4d98a, #c9a04a)",
+                boxShadow: "0 0 0 2px #1e120a, inset 0 -2px 0 #8a5f1c, inset 0 2px 0 #fff1c4",
+              }}
             >
-              <span style={{ color: cat.color }}>
-                <MenuIcon name={cat.icon} size={18} />
-              </span>
-              <h3 className="text-base font-bold">{cat.title}</h3>
+              <h3 className="text-xs font-bold tracking-wide">{group.title}</h3>
             </header>
 
-            <p className="mb-2 text-center text-[10px] tracking-[0.3em] text-chalk/40 short:hidden">~ MENU ~</p>
+            {/* 모서리 금 장식 */}
+            {CORNERS.map((pos) => (
+              <PixelSprite key={pos} rows={CORNER} palette={CORNER_PALETTE} scale={2} className={`pointer-events-none absolute ${pos}`} />
+            ))}
 
-            <ul className="flex flex-1 flex-col gap-2.5">
-              {cat.items.map((item) => (
+            <ul className="grid grid-cols-3 gap-1">
+              {group.items.map((item) => (
                 <li key={item.title}>
-                  <a href="#" className="group block text-chalk">
-                    <span className="flex items-end gap-2">
-                      <PixelSprite
-                        rows={gemRows}
-                        palette={{ o: INK, x: item.color, h: "#fff8e6" }}
-                        scale={2}
-                        className="mb-1 shrink-0 transition-transform group-hover:-translate-y-0.5"
-                      />
-                      <span className="min-w-0 truncate text-sm group-hover:text-gold" title={item.title}>{item.title}</span>
-                      <span className="leader" />
-                      <span className="text-xs text-gold/80 group-hover:text-gold">▶</span>
+                  <a
+                    href="#"
+                    className="group flex flex-col items-center gap-1.5 py-1 outline-none"
+                    style={{ "--tool": item.color } as CSSProperties}
+                  >
+                    {/* 면 아이콘: 평소엔 차분한 금빛, 올리면 도구 색으로 채워짐 */}
+                    <span className="flex size-11 items-center justify-center bg-[#132519] text-[#b9965e] shadow-[inset_0_0_0_2px_#8a5f1c] transition group-hover:-translate-y-0.5 group-hover:text-[var(--tool)] group-hover:shadow-[inset_0_0_0_2px_var(--tool),0_0_12px_var(--tool)] group-focus-visible:-translate-y-0.5 group-focus-visible:text-[var(--tool)] group-focus-visible:shadow-[inset_0_0_0_2px_var(--tool),0_0_12px_var(--tool)]">
+                      <MenuIcon name={item.icon} size={24} />
                     </span>
-                    <span className="block truncate pl-[22px] text-xs leading-snug text-chalk/55 short:hidden" title={item.desc}>{item.desc}</span>
+                    <span className="whitespace-nowrap text-xs text-parch/80 group-hover:text-parch group-focus-visible:text-parch">{item.title}</span>
                   </a>
                 </li>
               ))}
             </ul>
-
-            <button type="button" className="px-btn mx-auto mt-3 flex items-center gap-2 bg-parch px-3 py-1 text-xs">
-              더 알아보기
-              <PixelIcon name="arrowDown" color="var(--color-ink)" scale={2} />
-            </button>
           </article>
         ))}
       </div>

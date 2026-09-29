@@ -1,38 +1,33 @@
 import type { MenuIconName } from "@/lib/menuIcons";
 
-export type ToolItem = { title: string; desc: string; color: string };
-export type ToolCategory = { title: string; icon: MenuIconName; color: string; items: ToolItem[] };
+/** color: 마우스를 올리면 아이콘에 채워지는 색 */
+export type ToolItem = { title: string; icon: MenuIconName; color: string };
+export type ToolGroup = { title: string; items: ToolItem[] };
 export type Video = { title: string; views: string; tags: string[]; thumb: string };
 
-export const toolCategories: ToolCategory[] = [
+export const toolGroups: ToolGroup[] = [
   {
-    title: "일하기",
-    icon: "work",
-    color: "var(--color-green)",
+    title: "오피스 스위트",
     items: [
-      { title: "AI 슬라이드", desc: "빠르고 높은 퀄리티 제작 PPT", color: "var(--color-purple)" },
-      { title: "AI 엑셀 시트", desc: "자주사용하는 엑셀 자동화 시트", color: "var(--color-green)" },
-      { title: "AI 문서 자동화", desc: "자료 조사와 문서까지 한번에", color: "var(--color-gold)" },
+      { title: "AI 슬라이드", icon: "slide", color: "#f28a3c" },
+      { title: "AI 시트", icon: "sheet", color: "#4cbf6a" },
+      { title: "AI 문서", icon: "doc", color: "#4f8fe0" },
     ],
   },
   {
-    title: "배우기",
-    icon: "learn",
-    color: "var(--color-red)",
+    title: "빌드 스위트",
     items: [
-      { title: "AI 이미지", desc: "빠르게 원하는 AI 이미지 제작", color: "var(--color-red)" },
-      { title: "AI 코드", desc: "아이디어에서부터 웹 사이트 구현까지 AI로 제작", color: "var(--color-blue)" },
-      { title: "AI 디자인", desc: "원하는 디자인에서 부터 각 종 레퍼런스 까지 탐구", color: "var(--color-purple)" },
+      { title: "디자인", icon: "design", color: "#b57ae8" },
+      { title: "코드", icon: "code", color: "#3fbfd8" },
+      { title: "CRM", icon: "crm", color: "#e8c34f" },
     ],
   },
   {
-    title: "만들기",
-    icon: "make",
-    color: "var(--color-gold)",
+    title: "콘텐츠 제작",
     items: [
-      { title: "나만의 AI Agent 만들기", desc: "나만의 AI agent 자동화 만들기 ex) 주식, 정보, 가계부 등", color: "var(--color-gold)" },
-      { title: "AI 영상 만들기", desc: "AI영상으로 수익화 하기", color: "var(--color-red)" },
-      { title: "SNS 광고 자동화 하기", desc: "나만의 가게 AI 자동화 홍보하기 ex) 인스타그램, 스레드, 유튜브", color: "var(--color-blue)" },
+      { title: "AI 이미지", icon: "image", color: "#f26a9a" },
+      { title: "AI 영상", icon: "video", color: "#e8504a" },
+      { title: "AI 쇼츠", icon: "shorts", color: "#ff7a3d" },
     ],
   },
 ];

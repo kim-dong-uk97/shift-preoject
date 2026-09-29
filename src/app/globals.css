@@ -5,8 +5,9 @@
 
 :root {
   --ink: #1e120a;
-  --floor: #2b1a10;
-  --floor-line: #21130a;
+  --floor: #73341e;
+  --floor-line: #461b0c;
+  --floor-light: #864027;
   --cream: #f3e3c3;
   --parch: #efdfb8;
   --wood: #8a5530;
@@ -38,11 +39,11 @@
 }
 
 body {
-  /* 나무 바닥 + 위쪽에서 비치는 촛불 빛 */
+  /* 붉은 헛간 나무 벽: 세로 널빤지 (왼쪽 하이라이트 + 틈 그림자) + 위쪽에서 비치는 빛 */
   background-color: var(--floor);
   background-image:
-    radial-gradient(ellipse 80% 50% at 50% 0%, rgb(242 181 68 / 0.1), transparent 70%),
-    repeating-linear-gradient(0deg, var(--floor) 0 30px, var(--floor-line) 30px 33px);
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgb(255 214 150 / 0.12), transparent 70%),
+    repeating-linear-gradient(90deg, var(--floor-light) 0 3px, var(--floor) 3px 30px, var(--floor-line) 30px 33px);
   background-attachment: fixed;
   color: var(--cream);
   font-family: var(--font-sans);

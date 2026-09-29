@@ -208,6 +208,8 @@ type Particle = {
   vx: number;
   /** 바람에 밀려 통통 튀며 굴러가는 중 */
   hop: boolean;
+  /** 바람에 날려 떨어지는 중: 다른 상자(옆 액자 등)에 다시 내려앉지 않고 화면 밖까지 떨어짐 */
+  blown?: boolean;
   /** 위 상자들 뒤로 지나가 내려앉을 상자 (-1: 없음, -2: 목표를 놓쳐 끝까지 뒤로 떨어짐) */
   behind: number;
 };
@@ -661,11 +663,20 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
           if (f.behind >= 0) {
             const box = boxes[f.behind];
             if (!box) f.behind = -2;
-            else if (prevBottom <= surfOf(f.behind, box) + 0.5 && f.y + S >= surfOf(f.behind, box)) {
-              if (f.x + S > box.left + 1 && f.x < box.right - 1) landed = f.behind;
-              else f.behind = -2;
+            else {
+              // 목표 상자 윗면에 걸쳐 있는 상자(메뉴판 이름표 등)가 먼저 막으면 그 위에 앉음
+              for (let b = 0; b < boxes.length && landed < 0; b++) {
+                const o = boxes[b];
+                if (b === f.behind || !(o.top < box.top && o.bottom > box.top)) continue;
+                if (!(f.x + S > o.left + 1 && f.x < o.right - 1)) continue;
+                if (prevBottom <= surfOf(b, o) + 0.5 && f.y + S >= surfOf(b, o)) landed = b;
+              }
+              if (landed < 0 && prevBottom <= surfOf(f.behind, box) + 0.5 && f.y + S >= surfOf(f.behind, box)) {
+                if (f.x + S > box.left + 1 && f.x < box.right - 1) landed = f.behind;
+                else f.behind = -2;
+              }
             }
-          } else if (f.behind === -1) {
+          } else if (f.behind === -1 && !f.blown) {
             for (let b = 0; b < boxes.length; b++) {
               const box = boxes[b];
               if (!(f.x + S > box.left + 1 && f.x < box.right - 1)) continue;
@@ -732,6 +743,7 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
               f.amp = rand(8, 24);
               f.phase = rand(0, Math.PI * 2);
               f.hop = false;
+              f.blown = true;
             } else {
               f.vy = 18;
               f.amp = rand(3, 8);

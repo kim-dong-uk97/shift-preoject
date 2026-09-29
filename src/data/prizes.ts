@@ -18,9 +18,9 @@ export type Prize = {
 export const prizes: Prize[] = [
   { id: "can", name: "캔 음료", desc: "편의점 캔 음료 1개 교환권", sprite: "can", colors: { r: "#c0492f", w: "#efe6d2" }, rarity: "common", weight: 20 },
   { id: "pc1", name: "PC방 1시간", desc: "PC방 1시간 이용 쿠폰", sprite: "monitor", colors: { b: "#4f7fbf", c: "#bfe0ff" }, rarity: "rare", weight: 10 },
-  { id: "pc3", name: "PC방 3시간", desc: "PC방 3시간 이용 쿠폰", sprite: "monitor", colors: { b: "#8d5fb0", c: "#f2b544" }, rarity: "legend", weight: 3 },
+  { id: "pc3", name: "PC방 3시간", desc: "PC방 3시간 이용 쿠폰", sprite: "monitor", colors: { b: "#8d5fb0", c: "#f2b544" }, rarity: "legend", weight: 5 },
   { id: "character", name: "캐릭터 뽑기", desc: "동료 1명 획득 (도도·멀린·루나·헤이즐 중)", sprite: "card", colors: { x: "#8a5cc8", q: "#f2c94c" }, rarity: "legend", weight: 5 },
-  { id: "miss", name: "꽝", desc: "다음 기회에!", sprite: "miss", colors: { x: "#8a7a66" }, rarity: "miss", weight: 62 },
+  { id: "miss", name: "꽝", desc: "다음 기회에!", sprite: "miss", colors: { x: "#8a7a66" }, rarity: "miss", weight: 60 },
 ];
 
 export const rarityInfo: Record<Rarity, { label: string; className: string }> = {

@@ -51,6 +51,7 @@ export const framePalettes = {
   wood: { k: INK, h: "#c08850", w: "#8a5530", s: "#5c3620", f: "#3a2416" },
   parchment: { k: INK, h: "#fff5dc", w: "#e8d3a4", s: "#b9965e", f: "#efdfb8" },
   chalkboard: { k: INK, h: "#c08850", w: "#8a5530", s: "#5c3620", f: "#243328" },
+  gilded: { k: INK, h: "#ffe39a", w: "#d4a23c", s: "#8a5f1c", f: "#1f3527" },
 } satisfies Record<string, Palette>;
 
 /** 픽셀 프레임 스타일. scale은 픽셀 1칸의 크기(px) */

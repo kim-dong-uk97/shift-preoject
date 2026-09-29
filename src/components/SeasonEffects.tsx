@@ -644,7 +644,9 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
           const prevBottom = f.y + S;
           f.vy = Math.min(f.vy + 60 * dt, p.terminal);
           f.y += f.vy * dt;
-          f.baseX += (wind * outward(f.x) + f.vx) * dt; // 평소엔 좌우 흔들림만 (한쪽으로 쏠리지 않게)
+          // 채팅 바람: 저마다 받는 세기를 다르게(0.5~1.5배) 해서 한 덩어리로 밀리지 않고 퍼짐
+          const gustMul = 0.5 + f.phase / (Math.PI * 2);
+          f.baseX += (wind * gustMul * outward(f.x) + f.vx) * dt; // 평소엔 좌우 흔들림만 (한쪽으로 쏠리지 않게)
           f.vx *= Math.max(0, 1 - 1.2 * dt);
           f.x = f.baseX + Math.sin(t * 1.1 + f.phase) * f.amp;
           if (p.flutterMs[1] > 0 && now >= f.rotAt) {
@@ -722,9 +724,18 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
           if (cx < box.left || cx > box.right) {
             // 가장자리에서 굴러떨어짐
             f.state = "fall";
-            f.vy = 18;
-            f.amp = rand(3, 8);
             f.x = f.dir > 0 ? box.right : box.left - S;
+            if (f.hop) {
+              // 바람에 날린 것: 살짝 튀어 오르며 제각각 멀리·가까이, 크게 흔들리며 흩어져 떨어짐
+              f.vy = -rand(15, 70);
+              f.vx = f.dir * rand(40, 220);
+              f.amp = rand(8, 24);
+              f.phase = rand(0, Math.PI * 2);
+              f.hop = false;
+            } else {
+              f.vy = 18;
+              f.amp = rand(3, 8);
+            }
             f.baseX = f.x - Math.sin(t * 1.1 + f.phase) * f.amp;
             f.box = -1;
             f.rot = f.rot % 2 ? 0 : f.rot;

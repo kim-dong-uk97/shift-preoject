@@ -5,6 +5,7 @@ import Link from "next/link";
 import PixelSprite from "./PixelSprite";
 import PixelIcon from "./PixelIcon";
 import TypeLine from "./TypeLine";
+import MenuIcon from "./MenuIcon";
 import { defaultCharacter, subjectParticle, type Character } from "@/data/characters";
 import {
   DEMO_DELAY_MS,
@@ -31,6 +32,9 @@ export default function AgentChat() {
   const [input, setInput] = useState("");
   const [pending, setPending] = useState(false);
   const [listOpen, setListOpen] = useState(false);
+  // 대화 이름 바꾸기: 편집 중인 대화 id와 입력값
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
   const [now, setNow] = useState(0);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -129,6 +133,19 @@ export default function AgentChat() {
     if (activeId === id) setActiveId(null);
   };
 
+  const startRename = (c: Conversation) => {
+    setEditingId(c.id);
+    setEditValue(c.title);
+  };
+
+  /** 이름 저장 (비워 두면 원래 이름 유지, 목록 순서는 그대로) */
+  const commitRename = () => {
+    if (!editingId) return;
+    const title = editValue.trim().slice(0, 40);
+    if (title) updateConversations((list) => list.map((c) => (c.id === editingId ? { ...c, title } : c)));
+    setEditingId(null);
+  };
+
   const copy = (text: string) => navigator.clipboard?.writeText(text).catch(() => {});
 
   useEffect(() => {
@@ -147,17 +164,30 @@ export default function AgentChat() {
     if (input) el.style.height = `${Math.min(el.scrollHeight, 6 * 24 + 16)}px`;
   }, [input]);
 
-  const recentList = (
+  /** 메인으로 가는 집 버튼 (메인 화면처럼 왼쪽 동선에 둠) */
+  const homeButton = (className = "") => (
+    <Link href="/" aria-label="메인으로" title="메인으로" className={`px-btn flex size-8 shrink-0 items-center justify-center bg-cream text-ink hover:bg-gold ${className}`}>
+      <MenuIcon name="home" size={18} />
+    </Link>
+  );
+
+  /** 최근 대화 목록 (inDrawer: 좁은 화면 서랍용 → 닫기 버튼 표시, 홈 버튼은 제목줄에 있으므로 생략) */
+  const renderRecent = (inDrawer: boolean) => (
     <nav aria-label="최근 대화" className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between border-b-4 border-ink px-3 py-3">
-        <h2 className="text-sm text-gold">최근 대화</h2>
+        <div className="flex items-center gap-2">
+          {!inDrawer && homeButton()}
+          <h2 className="text-sm text-gold">최근 대화</h2>
+        </div>
         <div className="flex items-center gap-1">
           <button type="button" onClick={startNew} disabled={pending} className="px-btn bg-gold px-2 py-0.5 text-xs">
             + 새 대화
           </button>
-          <button type="button" onClick={() => setListOpen(false)} aria-label="최근 대화 닫기" className="px-btn bg-cream px-1.5 py-0.5 text-xs">
-            ✕
-          </button>
+          {inDrawer && (
+            <button type="button" onClick={() => setListOpen(false)} aria-label="최근 대화 닫기" className="px-btn bg-cream px-1.5 py-0.5 text-xs">
+              ✕
+            </button>
+          )}
         </div>
       </div>
       <ul className="no-scrollbar flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto p-2">
@@ -165,24 +195,68 @@ export default function AgentChat() {
         {conversations.map((c) => {
           const selected = c.id === activeId;
           return (
-            <li key={c.id} className={`group flex items-center ${selected ? "bg-gold/20 outline-2 outline-gold" : "hover:bg-[#3a2416]"}`}>
-              <button
-                type="button"
-                onClick={() => openConversation(c.id)}
-                aria-current={selected ? "true" : undefined}
-                className="min-w-0 flex-1 px-2 py-2 text-left"
-              >
-                <span className={`block truncate text-sm ${selected ? "text-gold" : "text-cream"}`}>{c.title}</span>
-                <span className="block text-[10px] text-cream/50">{now ? relativeTime(c.updatedAt, now) : ""}</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => removeConversation(c.id)}
-                aria-label={`'${c.title}' 대화 삭제`}
-                className="mr-1 px-1.5 text-xs text-cream/40 opacity-0 hover:text-red focus-visible:opacity-100 group-hover:opacity-100"
-              >
-                ✕
-              </button>
+            <li key={c.id} className={`group flex items-center ${selected ? "bg-gold/20 outline-2 outline-gold" : "hover:bg-[#4a2f1c]"}`}>
+              {editingId === c.id ? (
+                // 이름 편집: Enter·바깥 클릭 저장, Esc 취소
+                <div className="min-w-0 flex-1 px-2 py-1.5">
+                  <label htmlFor={`rename-${c.id}`} className="sr-only">
+                    대화 이름
+                  </label>
+                  <input
+                    id={`rename-${c.id}`}
+                    autoFocus
+                    value={editValue}
+                    maxLength={40}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onFocus={(e) => e.target.select()}
+                    onBlur={commitRename}
+                    onKeyDown={(e) => {
+                      if (e.nativeEvent.isComposing) return;
+                      if (e.key === "Enter") commitRename();
+                      if (e.key === "Escape") {
+                        e.stopPropagation();
+                        setEditingId(null);
+                      }
+                    }}
+                    className="w-full border-2 border-gold bg-[#1a110b] px-1.5 py-0.5 text-sm text-cream outline-none"
+                  />
+                  <span className="mt-0.5 block text-[10px] text-cream/50">Enter 저장 · Esc 취소</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => openConversation(c.id)}
+                  onDoubleClick={() => startRename(c)}
+                  aria-current={selected ? "true" : undefined}
+                  title="더블클릭하면 이름 바꾸기"
+                  className="min-w-0 flex-1 px-2 py-2 text-left"
+                >
+                  <span className={`block truncate text-sm ${selected ? "text-gold" : "text-cream"}`}>{c.title}</span>
+                  <span className="block text-[10px] text-cream/50">{now ? relativeTime(c.updatedAt, now) : ""}</span>
+                </button>
+              )}
+              {editingId !== c.id && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => startRename(c)}
+                    aria-label={`'${c.title}' 대화 이름 바꾸기`}
+                    title="이름 바꾸기"
+                    className="px-1 text-xs text-cream/50 opacity-0 hover:text-gold focus-visible:opacity-100 group-hover:opacity-100 max-lg:opacity-100"
+                  >
+                    ✎
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => removeConversation(c.id)}
+                    aria-label={`'${c.title}' 대화 삭제`}
+                    title="삭제"
+                    className="mr-1 px-1.5 text-xs text-cream/40 opacity-0 hover:text-red focus-visible:opacity-100 group-hover:opacity-100 max-lg:opacity-100"
+                  >
+                    ✕
+                  </button>
+                </>
+              )}
             </li>
           );
         })}
@@ -191,116 +265,123 @@ export default function AgentChat() {
   );
 
   return (
-    // 대화창 하나로 통으로: 제목줄 + 대화 + 입력 (최근 대화는 버튼으로 여는 서랍)
-    <section className="relative flex h-full min-h-0 flex-col text-ink" style={pixelFrame("parchment", 3)}>
-      <header className="flex items-center gap-2 border-b-2 border-ink/15 px-3 py-3 sm:gap-3 sm:px-4">
-        <button
-          type="button"
-          onClick={() => setListOpen((o) => !o)}
-          aria-expanded={listOpen}
-          aria-controls="recent-drawer"
-          className="px-btn flex items-center gap-1.5 bg-wood-dark px-2 py-1 text-xs text-cream"
-        >
-          <span aria-hidden="true">☰</span>
-          <span className="hidden sm:inline">최근 대화</span>
-          {conversations.length > 0 && <span>{conversations.length}</span>}
-          <span className="sr-only sm:hidden">최근 대화</span>
-        </button>
-        <span className="hidden bg-[#3a2416] p-1 sm:block" aria-hidden="true">
-          <PixelSprite rows={npc.rows} palette={npc.palette} scale={2} />
-        </span>
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-sm sm:text-base">AI Agent · {npc.name}</h1>
-          <p className="truncate text-xs text-wood-dark">{active ? active.title : "새 대화"}</p>
-        </div>
-        <button type="button" onClick={startNew} disabled={pending} className="px-btn hidden bg-gold px-2 py-1 text-xs sm:block">
-          + 새 대화
-        </button>
-        <Link href="/" className="px-btn bg-cream px-2 py-1 text-xs">
-          메인으로
-        </Link>
-      </header>
+    // 넓은 화면: 왼쪽에 최근 대화 늘 펼침 + 오른쪽 대화창 / 좁은 화면: 최근 대화는 버튼으로 여는 서랍
+    <div className="flex h-full min-h-0">
+      {/* 최근 대화: 화면 왼쪽 끝에 붙은 나무판 */}
+      <aside className="hidden w-[260px] shrink-0 flex-col border-r-4 border-ink bg-[#3a2416] text-cream lg:flex">
+        {renderRecent(false)}
+      </aside>
 
-      <div ref={scrollRef} className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-8">
-        <div ref={contentRef} className="mx-auto flex max-w-[760px] flex-col gap-6">
-          {messages.map((m, i) =>
-            m.role === "user" ? (
-              <p key={i} className="max-w-[80%] self-end whitespace-pre-wrap bg-[#dcc08e] px-4 py-2 text-[15px] leading-relaxed shadow-[inset_0_-3px_0_0_#c4a36b]">
-                {m.text}
-              </p>
-            ) : (
-              <div key={i} className="flex gap-3">
-                <span className="h-fit shrink-0 bg-[#3a2416] p-1" aria-hidden="true">
-                  <PixelSprite rows={npc.rows} palette={npc.palette} scale={2} />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs text-wood-dark">{npc.name}</p>
-                  <p className="mt-1 whitespace-pre-wrap text-[15px] leading-relaxed">
-                    {i === lastIndex ? <TypeLine key={`${activeId}-${i}`} text={m.text} showCaret={!pending} /> : m.text}
-                  </p>
-                  {i > 0 && (
-                    <button type="button" onClick={() => copy(m.text)} className="mt-1 text-[11px] text-wood-dark/70 hover:text-ink">
-                      복사
-                    </button>
-                  )}
-                </div>
-              </div>
-            ),
-          )}
-          {pending && (
-            <p className="pl-12 text-sm text-wood-dark" role="status">
-              {npc.name}
-              {subjectParticle(npc.name)} 생각하는 중
-              {[0, 1, 2].map((i) => (
-                <span key={i} className="animate-caret" style={{ animationDelay: `${i * 0.2}s` }}>
-                  .
-                </span>
-              ))}
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* 입력 */}
-      <form onSubmit={onSubmit} className="border-t-2 border-ink/15 px-2 pb-3 pt-4 sm:px-4">
-        <div className="mx-auto flex max-w-[820px] items-end gap-1 px-1 py-2 sm:gap-2 sm:px-2" style={pixelFrame("wood", 2)}>
-          <button type="button" aria-label="첨부" className="px-btn flex size-8 shrink-0 items-center justify-center bg-red sm:size-9">
-            <PixelIcon name="plus" color="var(--color-cream)" />
+      {/* 대화: 틀 없이 양피지 위에서 트이게 */}
+      <section className="relative flex min-w-0 flex-1 flex-col text-ink">
+        <header className="flex items-center gap-2 border-b-2 border-ink/15 px-3 py-3 sm:gap-3 sm:px-4">
+          {/* 좁은 화면(최근 대화 목록이 숨겨질 때): 맨 왼쪽에 집 버튼 */}
+          {homeButton("lg:hidden")}
+          <button
+            type="button"
+            onClick={() => setListOpen((o) => !o)}
+            aria-expanded={listOpen}
+            aria-controls="recent-drawer"
+            className="px-btn flex items-center gap-1.5 bg-wood-dark px-2 py-1 text-xs text-cream lg:hidden"
+          >
+            <span aria-hidden="true">☰</span>
+            <span className="hidden sm:inline">최근 대화</span>
+            {conversations.length > 0 && <span>{conversations.length}</span>}
+            <span className="sr-only sm:hidden">최근 대화</span>
           </button>
-          <label htmlFor="agent-input" className="sr-only">
-            메시지
-          </label>
-          <textarea
-            id="agent-input"
-            ref={inputRef}
-            rows={1}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={onKeyDown}
-            placeholder="메시지를 입력하세요…"
-            className="no-scrollbar max-h-40 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-6 text-cream outline-none placeholder:text-cream/45 md:text-[15px]"
-          />
-          <button type="button" aria-label="음성 입력" className="px-btn flex size-8 shrink-0 items-center justify-center bg-parch sm:size-9">
-            <PixelIcon name="mic" color="var(--color-ink)" scale={2} />
-          </button>
-          <button type="submit" aria-label="전송" disabled={pending || !input.trim()} className="px-btn flex size-8 shrink-0 items-center justify-center bg-gold sm:size-9">
-            <PixelIcon name="send" color="var(--color-ink)" />
-          </button>
-        </div>
-        <p className="mt-2 text-center text-[11px] text-wood-dark/70">
-          <span className="hidden sm:inline">Enter 전송 · Shift+Enter 줄바꿈 · </span>지금은 데모 응답입니다
-        </p>
-      </form>
-
-      {/* 최근 대화 서랍 (버튼으로 열고, 바깥 클릭·Esc로 닫힘) */}
-      {listOpen && (
-        <>
-          <button type="button" aria-label="최근 대화 닫기" onClick={() => setListOpen(false)} className="absolute inset-0 z-10 cursor-default bg-ink/35" />
-          <div id="recent-drawer" className="absolute inset-y-0 left-0 z-20 flex w-[290px] max-w-[85%] flex-col text-cream" style={pixelFrame("wood", 3)}>
-            {recentList}
+          <span className="hidden bg-[#3a2416] p-1 sm:block" aria-hidden="true">
+            <PixelSprite rows={npc.rows} palette={npc.palette} scale={2} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-sm sm:text-base">AI Agent · {npc.name}</h1>
+            <p className="truncate text-xs text-wood-dark">{active ? active.title : "새 대화"}</p>
           </div>
-        </>
-      )}
-    </section>
+          <button type="button" onClick={startNew} disabled={pending} className="px-btn hidden bg-gold px-2 py-1 text-xs sm:block lg:hidden">
+            + 새 대화
+          </button>
+        </header>
+
+        <div ref={scrollRef} className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-4 py-6 md:px-8">
+          <div ref={contentRef} className="mx-auto flex max-w-[760px] flex-col gap-6">
+            {messages.map((m, i) =>
+              m.role === "user" ? (
+                <p key={i} className="max-w-[80%] self-end whitespace-pre-wrap bg-[#dcc08e] px-4 py-2 text-[15px] leading-relaxed shadow-[inset_0_-3px_0_0_#c4a36b]">
+                  {m.text}
+                </p>
+              ) : (
+                <div key={i} className="flex gap-3">
+                  <span className="h-fit shrink-0 bg-[#3a2416] p-1" aria-hidden="true">
+                    <PixelSprite rows={npc.rows} palette={npc.palette} scale={2} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-wood-dark">{npc.name}</p>
+                    <p className="mt-1 whitespace-pre-wrap text-[15px] leading-relaxed">
+                      {i === lastIndex ? <TypeLine key={`${activeId}-${i}`} text={m.text} showCaret={!pending} /> : m.text}
+                    </p>
+                    {i > 0 && (
+                      <button type="button" onClick={() => copy(m.text)} className="mt-1 text-[11px] text-wood-dark/70 hover:text-ink">
+                        복사
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ),
+            )}
+            {pending && (
+              <p className="pl-12 text-sm text-wood-dark" role="status">
+                {npc.name}
+                {subjectParticle(npc.name)} 생각하는 중
+                {[0, 1, 2].map((i) => (
+                  <span key={i} className="animate-caret" style={{ animationDelay: `${i * 0.2}s` }}>
+                    .
+                  </span>
+                ))}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* 입력 */}
+        <form onSubmit={onSubmit} className="border-t-2 border-ink/15 px-2 pb-3 pt-4 sm:px-4">
+          <div className="mx-auto flex max-w-[820px] items-end gap-1 px-1 py-2 sm:gap-2 sm:px-2" style={pixelFrame("wood", 2)}>
+            <button type="button" aria-label="첨부" className="px-btn flex size-8 shrink-0 items-center justify-center bg-red sm:size-9">
+              <PixelIcon name="plus" color="var(--color-cream)" />
+            </button>
+            <label htmlFor="agent-input" className="sr-only">
+              메시지
+            </label>
+            <textarea
+              id="agent-input"
+              ref={inputRef}
+              rows={1}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder="메시지를 입력하세요…"
+              className="no-scrollbar max-h-40 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-6 text-cream outline-none placeholder:text-cream/45 md:text-[15px]"
+            />
+            <button type="button" aria-label="음성 입력" className="px-btn flex size-8 shrink-0 items-center justify-center bg-parch sm:size-9">
+              <PixelIcon name="mic" color="var(--color-ink)" scale={2} />
+            </button>
+            <button type="submit" aria-label="전송" disabled={pending || !input.trim()} className="px-btn flex size-8 shrink-0 items-center justify-center bg-gold sm:size-9">
+              <PixelIcon name="send" color="var(--color-ink)" />
+            </button>
+          </div>
+          <p className="mt-2 text-center text-[11px] text-wood-dark/70">
+            <span className="hidden sm:inline">Enter 전송 · Shift+Enter 줄바꿈 · </span>지금은 데모 응답입니다
+          </p>
+        </form>
+
+        {/* 최근 대화 서랍 (버튼으로 열고, 바깥 클릭·Esc로 닫힘) */}
+        {listOpen && (
+          <div className="lg:hidden">
+            <button type="button" aria-label="최근 대화 닫기" onClick={() => setListOpen(false)} className="absolute inset-0 z-10 cursor-default bg-ink/35" />
+            <div id="recent-drawer" className="absolute inset-y-0 left-0 z-20 flex w-[290px] max-w-[85%] flex-col text-cream" style={pixelFrame("wood", 3)}>
+              {renderRecent(true)}
+            </div>
+          </div>
+        )}
+      </section>
+    </div>
   );
 }

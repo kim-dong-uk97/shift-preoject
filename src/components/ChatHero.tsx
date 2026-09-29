@@ -142,7 +142,7 @@ export default function ChatHero({ className = "" }: { className?: string }) {
         {/* NPC 초상화 */}
         <div className="mt-7 flex shrink-0 flex-col items-center gap-2 self-start">
           <div className="relative p-1.5" style={pixelFrame("wood", 2)}>
-            <PixelSprite rows={npc.rows} palette={npc.palette} scale={4} title={`${npc.role} ${npc.name}`} className="animate-npc h-auto w-12 sm:w-16 short:w-12" />
+            <PixelSprite rows={npc.rows} palette={npc.palette} scale={4} title={`${npc.role} ${npc.name}`} className="animate-npc h-[60px] w-auto sm:h-20 short:h-[60px]" />
             {/* 머리 위 기호: 평소 !, 생각하는 동안 ? */}
             <PixelSprite
               key={pending ? "q" : "e"}

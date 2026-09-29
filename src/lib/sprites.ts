@@ -197,6 +197,10 @@ export const prizeSprites = {
   miss: {
     rows: ["oo.....oo", "oxo...oxo", ".oxo.oxo.", "..oxoxo..", "...oxo...", "..oxoxo..", ".oxo.oxo.", "oxo...oxo", "oo.....oo"],
   },
+  /** 캐릭터 뽑기 카드 (물음표) */
+  card: {
+    rows: ["ooooooooo", "oxxxxxxxo", "oxxqqqxxo", "oxqxxxqxo", "oxxxxqxxo", "oxxxqxxxo", "oxxxxxxxo", "oxxxqxxxo", "ooooooooo"],
+  },
 } satisfies Record<string, { rows: string[] }>;
 
 export type PrizeSprite = keyof typeof prizeSprites;

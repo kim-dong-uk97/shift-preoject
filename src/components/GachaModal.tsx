@@ -6,6 +6,7 @@ import { drawPrize, prizes, rarityInfo, type Prize } from "@/data/prizes";
 import { pixelFrame } from "@/lib/pixel";
 import { capsuleRows, INK, prizeSprites, ticketPalette, ticketRows } from "@/lib/sprites";
 import PixelSprite from "./PixelSprite";
+import { unlockRandomCharacter, type Character } from "@/data/characters";
 
 const HISTORY_KEY = "aurora.gacha.history";
 const ROLL_MS = 1200;
@@ -35,6 +36,8 @@ function readHistory(): string[] {
 export default function GachaModal({ open, onClose, tickets, onUseTicket }: Props) {
   const [rolling, setRolling] = useState(false);
   const [result, setResult] = useState<Prize | null>(null);
+  /** 캐릭터 뽑기 결과: 얻은 캐릭터 / 이미 모두 모음(null) / 해당 없음(undefined) */
+  const [wonChar, setWonChar] = useState<Character | null | undefined>(undefined);
   const [history, setHistory] = useState<string[]>([]);
   const closeRef = useRef<HTMLButtonElement>(null);
   const rollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -56,23 +59,26 @@ export default function GachaModal({ open, onClose, tickets, onUseTicket }: Prop
 
   if (!open) return null;
 
+  const saveHistory = (next: string[]) => {
+    try {
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
+    } catch {
+      // 저장 불가 환경에서는 화면에만 표시
+    }
+    return next;
+  };
+
   const onDraw = () => {
     if (rolling || !onUseTicket()) return;
     setResult(null);
+    setWonChar(undefined);
     setRolling(true);
     rollTimer.current = setTimeout(() => {
       const prize = drawPrize();
+      setWonChar(prize.id === "character" ? unlockRandomCharacter() : undefined);
       setResult(prize);
       setRolling(false);
-      setHistory((h) => {
-        const next = [prize.id, ...h].slice(0, 8);
-        try {
-          localStorage.setItem(HISTORY_KEY, JSON.stringify(next));
-        } catch {
-          // 저장 불가 환경에서는 화면에만 표시
-        }
-        return next;
-      });
+      setHistory((h) => saveHistory([prize.id, ...h].slice(0, 8)));
     }, ROLL_MS);
   };
 
@@ -102,7 +108,12 @@ export default function GachaModal({ open, onClose, tickets, onUseTicket }: Prop
           <div className="flex h-24 items-center justify-center">
             {result ? (
               <div key={result.id + history.length} className="animate-reveal flex flex-col items-center gap-2">
-                <PrizeIcon prize={result} scale={6} />
+                {wonChar ? (
+                  // 캐릭터 뽑기 당첨: 얻은 캐릭터를 그대로 보여 줌
+                  <PixelSprite rows={wonChar.rows} palette={wonChar.palette} scale={4} className="h-24 w-auto" />
+                ) : (
+                  <PrizeIcon prize={result} scale={6} />
+                )}
               </div>
             ) : (
               <PixelSprite
@@ -120,6 +131,16 @@ export default function GachaModal({ open, onClose, tickets, onUseTicket }: Prop
             ) : result ? (
               result.rarity === "miss" ? (
                 "아쉽지만 꽝! 다음 기회에"
+              ) : result.id === "character" ? (
+                wonChar ? (
+                  <>
+                    <span className={`mr-2 px-1.5 text-xs ${rarityInfo[result.rarity].className}`}>{rarityInfo[result.rarity].label}</span>
+                    동료 <span className="text-gold">{wonChar.name}</span>({wonChar.role}) 획득! 동료 선택에서 만날 수 있어요
+                  </>
+                ) : (
+                  // TODO(TBD): 모두 모은 뒤 캐릭터 뽑기 당첨 시 보상 방식 미정
+                  "캐릭터를 이미 모두 모았어요!"
+                )
               ) : (
                 <>
                   <span className={`mr-2 px-1.5 text-xs ${rarityInfo[result.rarity].className}`}>{rarityInfo[result.rarity].label}</span>

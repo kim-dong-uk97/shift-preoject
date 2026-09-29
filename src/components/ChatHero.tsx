@@ -121,8 +121,6 @@ export default function ChatHero({ className = "" }: { className?: string }) {
   return (
     <section
       data-leaf-perch
-      // 전송 순간 바람이 불어 위에 쌓인 낙엽 3~4장이 날아감
-      data-leaf-wind="true"
       className={`relative flex flex-col p-4 ${className}`}
     >
       <h1 className="sr-only">aurora 홈</h1>

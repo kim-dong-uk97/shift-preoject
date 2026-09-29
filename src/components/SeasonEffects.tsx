@@ -36,6 +36,8 @@ type PileProfile = {
   layerPx: number;
   /** 채팅 바람 한 번에 날아가는 개수 */
   blow: [number, number];
+  /** 낱개 대신 상자 윗면에 이어진 덩어리(눈 덮개)로 쌓임. maxH: 최대 높이(px) */
+  cap?: { maxH: number };
 };
 
 /** 여름 비 설정 */
@@ -71,7 +73,7 @@ const PROFILES: Record<Season, PileProfile | RainProfile> = {
     maxPerBox: 120,
     maxLayers: 7,
     layerPx: 4,
-    blow: [3, 4],
+    blow: [18, 22],
   },
   spring: {
     type: "pile",
@@ -94,7 +96,7 @@ const PROFILES: Record<Season, PileProfile | RainProfile> = {
     maxPerBox: 160,
     maxLayers: 4,
     layerPx: 3,
-    blow: [5, 7],
+    blow: [18, 22],
   },
   winter: {
     type: "pile",
@@ -116,9 +118,10 @@ const PROFILES: Record<Season, PileProfile | RainProfile> = {
     rollSpeed: [15, 25],
     tumble: false,
     maxPerBox: 450,
+    cap: { maxH: 16 },
     maxLayers: 5,
     layerPx: 2,
-    blow: [10, 14],
+    blow: [20, 24],
   },
   summer: { type: "rain", maxDrops: 110, perSecond: 70, vy: [520, 680], slant: -50 },
 };
@@ -129,6 +132,10 @@ const PROFILES: Record<Season, PileProfile | RainProfile> = {
 
 const GUST_MS = 1800;
 const GUST_FORCE = 140; // px/s
+/** 많이 쌓였을수록 바람에 더 많이 떨어짐: 기본 개수 + 쌓인 양 비례, 최대 개수 */
+const BLOW_EXTRA_RATE = 0.15; // 쌓인 낱개 수 대비
+const BLOW_PER_SNOW = 90; // 눈 덮개 높이 합(px) 이만큼마다 한 덩이 추가
+const BLOW_MAX = 60;
 const EDGE = 6; // 이 거리 안쪽 가장자리에 떨어지면 굴러떨어짐
 const SINK = 4; // 착지 시 윗면 테두리에 살짝 파묻히는 최대 정도
 /** 작은 것(눈송이)은 덜 파묻혀야 보임 */
@@ -215,7 +222,7 @@ type Splash = { x: number; y: number; vx: number; vy: number; life: number };
  * 계절 효과: 봄 벚꽃 / 여름 비 / 가을 낙엽 / 겨울 눈.
  * [data-leaf-perch] 상자를 장애물로 취급 (윗면에 쌓이거나 굴러떨어짐, 비는 튐).
  * 가로 범위: [data-leaf-bound="left"]의 오른쪽 ~ [data-leaf-bound="right"]의 왼쪽.
- * [data-leaf-wind] 상자 위에 쌓인 것은 채팅 바람(WIND_EVENT)에 몇 개씩 날아감.
+ * 채팅 바람(WIND_EVENT)이 불면 모든 상자 위에 쌓인 것이 골고루 몇 개씩 날아감.
  */
 export default function SeasonEffects({ stageId }: { stageId: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -242,6 +249,56 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
     let gustStart = -Infinity;
     let gustDir = 1;
     let blowQueue: [number, Rest][] = [];
+
+    // 눈 덮개: 상자별로 2px 칸마다 쌓인 높이
+    const COL = 2;
+    const caps = new Map<number, Float32Array>();
+    let capBlowQueue: [number, number][] = []; // [시각, 상자]
+    const capOf = (b: number, box: Box) => {
+      const cols = Math.max(1, Math.round((box.right - box.left) / COL));
+      let arr = caps.get(b);
+      if (!arr || arr.length !== cols) {
+        // 상자 폭이 바뀌면 비율대로 옮겨 담음
+        const next = new Float32Array(cols);
+        if (arr) for (let i = 0; i < cols; i++) next[i] = arr[Math.floor((i / cols) * arr.length)];
+        caps.set(b, next);
+        arr = next;
+      }
+      return arr;
+    };
+    /** 가장자리는 낮고 가운데는 높게 → 둥그스름한 덮개 */
+    const capMax = (p: PileProfile, i: number, cols: number) => Math.min(p.cap!.maxH, 2 + Math.min(i, cols - 1 - i) * 1.2);
+    const capHeightAt = (b: number, box: Box, x: number) => {
+      const arr = capOf(b, box);
+      const i = Math.floor((x - box.left) / COL);
+      return i >= 0 && i < arr.length ? arr[i] : 0;
+    };
+    const deposit = (p: PileProfile, b: number, box: Box, x: number, size: number) => {
+      const arr = capOf(b, box);
+      const c = Math.floor((x - box.left) / COL);
+      const amt = Math.max(1.5, size);
+      for (let d = -5; d <= 5; d++) {
+        const i = c + d;
+        if (i < 0 || i >= arr.length) continue;
+        arr[i] = Math.min(capMax(p, i, arr.length), arr[i] + amt * (1 - Math.abs(d) / 6));
+      }
+    };
+    /** 옆 칸보다 너무 높으면 흘러내려 봉긋한 덩어리가 됨 */
+    const relax = (arr: Float32Array) => {
+      for (let i = 0; i < arr.length - 1; i++) {
+        const diff = arr[i] - arr[i + 1];
+        if (Math.abs(diff) > 2) {
+          const move = (Math.abs(diff) - 2) / 2;
+          if (diff > 0) {
+            arr[i] -= move;
+            arr[i + 1] += move;
+          } else {
+            arr[i] += move;
+            arr[i + 1] -= move;
+          }
+        }
+      }
+    };
     let streaks: { x: number; y: number; len: number; speed: number }[] = [];
 
     const spawnRange = () => {
@@ -265,35 +322,49 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
       const now = performance.now();
       gustStart = now;
       gustDir = Math.random() < 0.5 ? -1 : 1;
-      const els = [...document.querySelectorAll<HTMLElement>("[data-leaf-perch]")];
-      // 바람결은 쌓이는 윗면(대화창) 바로 위를 스쳐 지나감
-      const target = els.find((el) => el.dataset.leafWind === "true")?.getBoundingClientRect();
-      const range = spawnRange();
-      const spanL = target ? target.left : range.left;
-      const spanR = target ? target.right : range.right;
-      const topY = target ? target.top : 80;
-      streaks = Array.from({ length: 6 }, () => {
-        const len = rand(40, 90);
-        return {
-          x: gustDir > 0 ? spanL - len - rand(0, 160) : spanR + rand(0, 160),
-          y: topY - rand(4, 44),
-          len,
-          speed: gustDir * rand(520, 780),
-        };
-      });
+      const rects = [...document.querySelectorAll<HTMLElement>("[data-leaf-perch]")].map((el) => el.getBoundingClientRect());
+      // 바람결: 화면에 보이는 모든 상자 윗면 바로 위를 스쳐 지나감
+      const visible = rects.filter((r) => r.bottom > 0 && r.top < window.innerHeight && r.width > 0);
+      streaks = visible.flatMap((r) =>
+        Array.from({ length: r.width > 400 ? 3 : 1 }, () => {
+          const len = Math.min(rand(40, 90), r.width);
+          return {
+            x: gustDir > 0 ? r.left - len - rand(0, 120) : r.right + rand(0, 120),
+            y: r.top - rand(4, 30),
+            len,
+            speed: gustDir * rand(520, 780),
+          };
+        }),
+      );
       blowQueue = [];
       if (profile.type !== "pile") return;
-      // 바람 부는 쪽 가장자리에 가까운 것 중 몇 개만 골라 시간차를 두고 날려 보냄
-      const windBox = els.map((el) => el.dataset.leafWind === "true");
-      const gap = (r: Rest) => (gustDir > 0 ? els[r.box].getBoundingClientRect().width - r.relX : r.relX);
-      const count = Math.round(rand(profile.blow[0], profile.blow[1]));
-      const candidates = resting
-        .filter((r) => windBox[r.box])
-        .sort((a, b) => gap(a) - gap(b))
-        .slice(0, count * 2);
-      for (let i = 0; i < count && candidates.length; i++) {
-        const r = candidates.splice(Math.floor(Math.random() * candidates.length), 1)[0];
-        blowQueue.push([now + rand(0, 500), r]);
+      if (profile.cap) {
+        // 눈 덮개가 있는 상자들을 돌아가며 조금씩 깎아 냄
+        const withSnow = [...caps.entries()].filter(([, arr]) => arr.some((h) => h >= 3)).map(([b]) => b);
+        let snow = 0;
+        for (const arr of caps.values()) for (const h of arr) snow += h;
+        const count = Math.min(BLOW_MAX, Math.round(rand(profile.blow[0], profile.blow[1]) + snow / BLOW_PER_SNOW));
+        capBlowQueue = [];
+        for (let i = 0; i < count && withSnow.length; i++) capBlowQueue.push([now + rand(0, 700), withSnow[i % withSnow.length]]);
+        return;
+      }
+      // 모든 상자에서 골고루: 상자별로 바람 부는 쪽 가장자리에 가까운 순으로 줄 세운 뒤 돌아가며 한 개씩
+      const gap = (r: Rest) => (gustDir > 0 ? rects[r.box].width - r.relX : r.relX);
+      const perBox = new Map<number, Rest[]>();
+      for (const r of resting) {
+        if (!rects[r.box]) continue;
+        perBox.set(r.box, [...(perBox.get(r.box) ?? []), r]);
+      }
+      const queues = [...perBox.values()].map((list) => list.sort((a, b) => gap(a) - gap(b)));
+      const count = Math.min(BLOW_MAX, Math.round(rand(profile.blow[0], profile.blow[1]) + resting.length * BLOW_EXTRA_RATE));
+      for (let picked = 0; picked < count && queues.some((q) => q.length); ) {
+        for (const q of queues) {
+          if (picked >= count) break;
+          const r = q.shift();
+          if (!r) continue;
+          blowQueue.push([now + rand(0, 700), r]);
+          picked++;
+        }
       }
     };
     window.addEventListener(WIND_EVENT, onWind);
@@ -398,6 +469,56 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
 
     /* ---------- 봄·가을·겨울: 떨어져서 쌓임 ---------- */
     function stepPile(p: PileProfile, now: number, t: number, dt: number, boxes: Box[], wind: number) {
+      // 눈 덮개가 바람에 깎여 눈송이로 날아감 (바람 부는 쪽 가장자리부터)
+      if (p.cap) {
+        capBlowQueue = capBlowQueue.filter(([at, b]) => {
+          if (now < at) return true;
+          const box = boxes[b];
+          if (!box) return false;
+          const arr = capOf(b, box);
+          let c = -1;
+          for (let k = 0; k < arr.length; k++) {
+            const i = gustDir > 0 ? arr.length - 1 - k : k;
+            if (arr[i] >= 3) {
+              c = i;
+              break;
+            }
+          }
+          if (c < 0) return false;
+          const h = arr[c];
+          for (let d = -3; d <= 3; d++) {
+            const i = c + d;
+            if (i >= 0 && i < arr.length) arr[i] = Math.max(0, arr[i] - 5 * (1 - Math.abs(d) / 4));
+          }
+          const kind = Math.floor(Math.random() * p.sprites.length);
+          const size = p.sprites[kind].rows.length * p.px;
+          const x = box.left + c * COL - size / 2;
+          moving.push({
+            kind,
+            size,
+            color: pick(p.sprites[kind].colors),
+            x,
+            y: box.top - h - size,
+            vy: 0,
+            baseX: x,
+            amp: rand(3, 8),
+            phase: rand(0, Math.PI * 2),
+            rot: 0,
+            rotAt: now,
+            state: "roll",
+            box: b,
+            dir: gustDir,
+            speed: rand(170, 240),
+            rollLeft: Infinity,
+            lift: 0,
+            vx: gustDir * rand(60, 110),
+            hop: true,
+            behind: -1,
+          });
+          return false;
+        });
+      }
+
       // 바람에 날아가는 쌓인 것: 윗면을 따라 통통 튀며 굴러가다 가장자리에서 떨어짐
       blowQueue = blowQueue.filter(([at, r]) => {
         if (now < at) return true;
@@ -511,10 +632,12 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
 
           // 부딪힐 상자 찾기 (뒤로 지나가는 것은 목표 상자 윗면만)
           let landed = -1;
+          // 눈 덮개가 있으면 그 윗면이 착지면
+          const surfOf = (b: number, box: Box) => box.top - (p.cap ? capHeightAt(b, box, f.x + S / 2) : 0);
           if (f.behind >= 0) {
             const box = boxes[f.behind];
             if (!box) f.behind = -2;
-            else if (prevBottom <= box.top + 0.5 && f.y + S >= box.top) {
+            else if (prevBottom <= surfOf(f.behind, box) + 0.5 && f.y + S >= surfOf(f.behind, box)) {
               if (f.x + S > box.left + 1 && f.x < box.right - 1) landed = f.behind;
               else f.behind = -2;
             }
@@ -522,7 +645,7 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
             for (let b = 0; b < boxes.length; b++) {
               const box = boxes[b];
               if (!(f.x + S > box.left + 1 && f.x < box.right - 1)) continue;
-              if (prevBottom <= box.top + 0.5 && f.y + S >= box.top) {
+              if (prevBottom <= surfOf(b, box) + 0.5 && f.y + S >= surfOf(b, box)) {
                 landed = b;
                 break;
               }
@@ -551,7 +674,8 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
               f.rollLeft = nearEdge ? Infinity : rand(10, 50);
               f.y = box.top - S + sinkOf(S) - lift;
             } else {
-              resting.push({ box: landed, relX, lift, kind: f.kind, size: S, color: f.color, rot: f.rot % 2 ? 0 : f.rot });
+              if (p.cap) deposit(p, landed, box, f.x + S / 2, S);
+              else resting.push({ box: landed, relX, lift, kind: f.kind, size: S, color: f.color, rot: f.rot % 2 ? 0 : f.rot });
               moving.splice(i, 1);
               continue;
             }
@@ -567,7 +691,7 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
           const step = f.dir * f.speed * dt;
           f.x += step;
           f.rollLeft -= Math.abs(step);
-          f.y = box.top - S + sinkOf(S) - f.lift - (f.hop ? Math.abs(Math.sin(now / 110 + f.phase)) * 10 : 0);
+          f.y = box.top - S + sinkOf(S) - (p.cap ? capHeightAt(f.box, box, f.x + S / 2) : f.lift) - (f.hop ? Math.abs(Math.sin(now / 110 + f.phase)) * 10 : 0);
           if (p.tumble && now >= f.rotAt) {
             f.rot = (f.rot + (f.dir > 0 ? 1 : 3)) % 4;
             f.rotAt = now + 90;
@@ -588,8 +712,37 @@ export default function SeasonEffects({ stageId }: { stageId: string }) {
             const lift = liftAt(p, f.box, relX, S);
             if (lift >= fullLift || boxFull(p, f.box)) f.rollLeft = rand(20, 60);
             else {
-              resting.push({ box: f.box, relX, lift, kind: f.kind, size: S, color: f.color, rot: f.rot % 2 ? 0 : f.rot });
+              if (p.cap) deposit(p, f.box, box, f.x + S / 2, S);
+              else resting.push({ box: f.box, relX, lift, kind: f.kind, size: S, color: f.color, rot: f.rot % 2 ? 0 : f.rot });
               moving.splice(i, 1);
+            }
+          }
+        }
+      }
+
+      // 눈 덮개: 2px 계단으로 흰 몸통 + 윗면 하이라이트 + 아래 그림자 + 옅은 외곽선
+      if (p.cap) {
+        for (const [b, arr] of caps) {
+          const box = boxes[b];
+          if (!box) continue;
+          const cur = capOf(b, box);
+          if (cur !== arr) continue;
+          relax(arr);
+          relax(arr);
+          for (let i = 0; i < arr.length; i++) {
+            const h = Math.round(arr[i] / 2) * 2;
+            if (h < 2) continue;
+            const x = Math.round(box.left + i * COL);
+            const top = Math.round(box.top - h + 2);
+            ctx!.fillStyle = "#9fb2c9";
+            ctx!.fillRect(x, top - 2, COL, 2);
+            ctx!.fillStyle = "#eef3fb";
+            ctx!.fillRect(x, top, COL, h);
+            ctx!.fillStyle = "#ffffff";
+            ctx!.fillRect(x, top, COL, 2);
+            if (h >= 6) {
+              ctx!.fillStyle = "#d6e2f0";
+              ctx!.fillRect(x, top + h - 3, COL, 3);
             }
           }
         }

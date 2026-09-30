@@ -17,6 +17,7 @@ export const menuIcons = {
   image: "<path fill=\"currentColor\" d=\"M13 1a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2zM3 11v2h10v-2l-2-2l-2 2l-3-3zm8-8a2 2 0 1 0 0 4a2 2 0 0 0 0-4\"/>", // image
   video: "<path fill=\"currentColor\" d=\"M9 3a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm5.223 1.519a.5.5 0 0 1 .777.416v6.13a.5.5 0 0 1-.777.416L12 10V6z\"/>", // video-camera
   shorts: "<g fill=\"currentColor\"><path d=\"M11 11H5V3h6z\"/><path d=\"M11 1a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2zM7.5 13a.5.5 0 0 0 0 1h1a.5.5 0 0 0 0-1zM5 2a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1z\"/></g>", // mobile-phone
+  folder: "<path fill=\"currentColor\" d=\"M15 12a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7h14zM5.586 2a1 1 0 0 1 .707.293L8 4h5a2 2 0 0 1 2 2H1V4a2 2 0 0 1 2-2z\"/>", // folder
 } as const;
 
 export type MenuIconName = keyof typeof menuIcons;

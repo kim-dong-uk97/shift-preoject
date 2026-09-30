@@ -6,6 +6,7 @@ import PixelSprite from "./PixelSprite";
 import PixelIcon from "./PixelIcon";
 import TypeLine from "./TypeLine";
 import MenuIcon from "./MenuIcon";
+import ModelPicker from "./ModelPicker";
 import { defaultCharacter, subjectParticle, type Character } from "@/data/characters";
 import {
   DEMO_DELAY_MS,
@@ -19,6 +20,7 @@ import {
   type ChatMessage,
   type Conversation,
 } from "@/lib/chat";
+import { loadModel } from "@/data/models";
 import { pixelFrame } from "@/lib/pixel";
 
 const newId = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `c${Date.now()}${Math.random()}`);
@@ -40,6 +42,9 @@ export default function AgentChat() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  // 불러온 폴더 (TODO(TBD): 업로드·AI 전달 방식 확정 후 files를 실제로 보냄. 지금은 이름·개수만 표시)
+  const [folders, setFolders] = useState<{ name: string; files: File[] }[]>([]);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   // 저장된 NPC·대화 불러오기 (첫 렌더는 기본값으로 맞춰 하이드레이션 불일치 방지)
   useEffect(() => {
@@ -78,20 +83,36 @@ export default function AgentChat() {
     });
   };
 
+  const folderLabel = (f: { name: string; files: File[] }) => `${f.name} · ${f.files.length}개 파일`;
+
+  const onPickFolder = (list: FileList | null) => {
+    const files = list ? [...list] : [];
+    if (!files.length) return;
+    const name = files[0].webkitRelativePath.split("/")[0] || "폴더";
+    setFolders((prev) => [...prev.filter((f) => f.name !== name), { name, files }]);
+    inputRef.current?.focus();
+  };
+
   const send = () => {
     const text = input.trim();
-    if (!text || pending) return;
+    if ((!text && !folders.length) || pending) return;
+    const sentFolders = folders.length ? folders.map(folderLabel) : undefined;
+    const userMsg: ChatMessage = { role: "user", text, ...(sentFolders && { folders: sentFolders }) };
     const id = activeId ?? newId();
     const ts = Date.now();
     updateConversations((list) => {
       const existing = list.find((c) => c.id === id);
-      if (existing) return list.map((c) => (c.id === id ? { ...c, updatedAt: ts, messages: [...c.messages, { role: "user", text }] } : c));
-      return [{ id, title: titleFrom(text), updatedAt: ts, messages: [...draft, { role: "user", text }] }, ...list];
+      if (existing) return list.map((c) => (c.id === id ? { ...c, updatedAt: ts, messages: [...c.messages, userMsg] } : c));
+      return [{ id, title: titleFrom(text || folders[0].name), updatedAt: ts, messages: [...draft, userMsg] }, ...list];
     });
     setActiveId(id);
     setInput("");
+    setFolders([]);
     setPending(true);
     setNow(ts);
+    // 입력칸 위에서 고른 모델. TODO(TBD): AI 연동 시 model.id를 요청에 실어 보내고 아래 데모 응답을 실제 응답으로 교체
+    const model = loadModel();
+    void model;
     timer.current = setTimeout(() => {
       updateConversations((list) =>
         list.map((c) => (c.id === id ? { ...c, updatedAt: Date.now(), messages: [...c.messages, { role: "npc", text: DEMO_REPLY }] } : c)),
@@ -305,9 +326,17 @@ export default function AgentChat() {
           <div ref={contentRef} className="mx-auto flex max-w-[760px] flex-col gap-6">
             {messages.map((m, i) =>
               m.role === "user" ? (
-                <p key={i} className="max-w-[80%] self-end whitespace-pre-wrap bg-[#dcc08e] px-4 py-2 text-[15px] leading-relaxed shadow-[inset_0_-3px_0_0_#c4a36b]">
-                  {m.text}
-                </p>
+                <div key={i} className="flex max-w-[80%] flex-col items-end gap-1 self-end">
+                  {m.folders?.map((f) => (
+                    <span key={f} className="flex items-center gap-1.5 bg-[#3a2416] px-2 py-1 text-xs text-cream">
+                      <MenuIcon name="folder" size={14} className="text-gold" />
+                      {f}
+                    </span>
+                  ))}
+                  {m.text && (
+                    <p className="whitespace-pre-wrap bg-[#dcc08e] px-4 py-2 text-[15px] leading-relaxed shadow-[inset_0_-3px_0_0_#c4a36b]">{m.text}</p>
+                  )}
+                </div>
               ) : (
                 <div key={i} className="flex gap-3">
                   <span className="h-fit shrink-0 bg-[#3a2416] p-1" aria-hidden="true">
@@ -342,11 +371,28 @@ export default function AgentChat() {
         </div>
 
         {/* 입력 */}
-        <form onSubmit={onSubmit} className="border-t-2 border-ink/15 px-2 pb-3 pt-4 sm:px-4">
-          <div className="mx-auto flex max-w-[820px] items-end gap-1 px-1 py-2 sm:gap-2 sm:px-2" style={pixelFrame("wood", 2)}>
-            <button type="button" aria-label="첨부" className="px-btn flex size-8 shrink-0 items-center justify-center bg-red sm:size-9">
-              <PixelIcon name="plus" color="var(--color-cream)" />
-            </button>
+        <form onSubmit={onSubmit} className="border-t-2 border-ink/15 px-2 pb-3 pt-3 sm:px-4">
+          {/* 위: 메시지 입력 / 아래: 첨부·모델 고르기(왼쪽) + 음성·전송(오른쪽) */}
+          <div className="mx-auto flex max-w-[820px] flex-col gap-1 px-1 pb-1.5 pt-2 sm:px-2" style={pixelFrame("wood", 2)}>
+            {/* 불러온 폴더 칩 (✕로 빼기) */}
+            {folders.length > 0 && (
+              <ul className="flex flex-wrap gap-1.5 px-1 pt-1" aria-label="불러온 폴더">
+                {folders.map((f) => (
+                  <li key={f.name} className="flex items-center gap-1.5 bg-[#5c3620] py-0.5 pl-2 pr-1 text-xs text-cream">
+                    <MenuIcon name="folder" size={14} className="text-gold" />
+                    {folderLabel(f)}
+                    <button
+                      type="button"
+                      aria-label={`${f.name} 폴더 빼기`}
+                      onClick={() => setFolders((prev) => prev.filter((x) => x.name !== f.name))}
+                      className="px-1 text-cream/70 hover:text-cream"
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
             <label htmlFor="agent-input" className="sr-only">
               메시지
             </label>
@@ -358,14 +404,45 @@ export default function AgentChat() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
               placeholder="메시지를 입력하세요…"
-              className="no-scrollbar max-h-40 min-w-0 flex-1 resize-none bg-transparent px-2 py-2 text-sm leading-6 text-cream outline-none placeholder:text-cream/45 md:text-[15px]"
+              className="no-scrollbar max-h-40 min-w-0 resize-none bg-transparent px-2 py-2 text-sm leading-6 text-cream outline-none placeholder:text-cream/45 md:text-[15px]"
             />
-            <button type="button" aria-label="음성 입력" className="px-btn flex size-8 shrink-0 items-center justify-center bg-parch sm:size-9">
-              <PixelIcon name="mic" color="var(--color-ink)" scale={2} />
-            </button>
-            <button type="submit" aria-label="전송" disabled={pending || !input.trim()} className="px-btn flex size-8 shrink-0 items-center justify-center bg-gold sm:size-9">
-              <PixelIcon name="send" color="var(--color-ink)" />
-            </button>
+            <div className="flex items-center gap-1 sm:gap-2">
+              <button type="button" aria-label="첨부" className="px-btn flex size-8 shrink-0 items-center justify-center bg-red sm:size-9">
+                <PixelIcon name="plus" color="var(--color-cream)" />
+              </button>
+              {/* 폴더 불러오기: 폴더를 고르면 안의 파일을 한꺼번에 가져옴 */}
+              <button
+                type="button"
+                aria-label="폴더 불러오기"
+                title="폴더 불러오기"
+                onClick={() => folderInputRef.current?.click()}
+                className="px-btn flex size-8 shrink-0 items-center justify-center bg-gold text-ink sm:size-9"
+              >
+                <MenuIcon name="folder" size={18} />
+              </button>
+              <input
+                ref={(el) => {
+                  folderInputRef.current = el;
+                  el?.setAttribute("webkitdirectory", "");
+                }}
+                type="file"
+                multiple
+                hidden
+                onChange={(e) => {
+                  onPickFolder(e.target.files);
+                  e.target.value = "";
+                }}
+              />
+              {/* 모델 고르기 (TODO(TBD): 실제 모델 연동 시 선택값을 요청에 실어 보냄) */}
+              <ModelPicker />
+              <span className="flex-1" />
+              <button type="button" aria-label="음성 입력" className="px-btn flex size-8 shrink-0 items-center justify-center bg-parch sm:size-9">
+                <PixelIcon name="mic" color="var(--color-ink)" scale={2} />
+              </button>
+              <button type="submit" aria-label="전송" disabled={pending || (!input.trim() && !folders.length)} className="px-btn flex size-8 shrink-0 items-center justify-center bg-gold sm:size-9">
+                <PixelIcon name="send" color="var(--color-ink)" />
+              </button>
+            </div>
           </div>
           <p className="mt-2 text-center text-[11px] text-wood-dark/70">
             <span className="hidden sm:inline">Enter 전송 · Shift+Enter 줄바꿈 · </span>지금은 데모 응답입니다

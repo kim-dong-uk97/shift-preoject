@@ -1,6 +1,7 @@
 import { characters, defaultCharacter, type Character } from "@/data/characters";
 
-export type ChatMessage = { role: "npc" | "user"; text: string };
+/** folders: 함께 보낸 폴더 표시용 이름 (예: "기획서 · 12개 파일") */
+export type ChatMessage = { role: "npc" | "user"; text: string; folders?: string[] };
 export type Conversation = { id: string; title: string; updatedAt: number; messages: ChatMessage[] };
 
 export const GREETING = "반갑습니다, 모험가님! 무엇이든 물어보세요 :)";

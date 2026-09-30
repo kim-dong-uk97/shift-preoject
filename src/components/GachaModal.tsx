@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { drawPrize, prizes, rarityInfo, type Prize } from "@/data/prizes";
+import { deckSize, drawPrize, prizes, rarityInfo, type Prize } from "@/data/prizes";
 import { pixelFrame } from "@/lib/pixel";
 import { capsuleRows, INK, prizeSprites, ticketPalette, ticketRows } from "@/lib/sprites";
 import PixelSprite from "./PixelSprite";
@@ -183,7 +183,7 @@ export default function GachaModal({ open, onClose, tickets, onUseTicket }: Prop
               </li>
             ))}
           </ul>
-          <p className="mt-3 text-[11px] leading-relaxed text-cream/45">※ 상품 구성과 확률은 예시이며 확정 전입니다. 지급 방식은 추후 안내 예정.</p>
+          <p className="mt-3 text-[11px] leading-relaxed text-cream/45">※ {deckSize()}장 묶음을 섞어 한 장씩 뽑는 방식이라, {deckSize()}번마다 위 확률대로 정확히 나와요. 상품 구성과 확률은 예시이며 확정 전입니다. 지급 방식은 추후 안내 예정.</p>
 
           {history.length > 0 && (
             <div className="mt-4">

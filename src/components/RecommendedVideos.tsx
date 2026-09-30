@@ -23,8 +23,8 @@ export default function RecommendedVideos() {
         {bestVideos.map((v) => (
           <li key={v.title}>
             <a href="#" className="group flex gap-3 xl:gap-2.5">
-              <div className="relative aspect-[142/78] w-32 shrink-0 self-start overflow-hidden border-4 border-ink bg-ink sm:w-28 xl:w-[116px]">
-                <Image src={v.thumb} alt="" fill sizes="128px" className="object-contain transition-transform group-hover:scale-105" />
+              <div className="relative aspect-[142/92] short:aspect-[142/78] w-32 shrink-0 self-start overflow-hidden border-4 border-ink bg-ink sm:w-28 xl:w-[116px]">
+                <Image src={v.thumb} alt="" fill sizes="128px" className="object-cover transition-transform group-hover:scale-105" />
                 {/* 재생 표시: 평소엔 숨기고 호버 시 노출 */}
                 <span className="absolute inset-0 flex items-center justify-center bg-ink/40 opacity-0 transition-opacity group-hover:opacity-100">
                   <PixelIcon name="play" color="var(--color-cream)" scale={3} />

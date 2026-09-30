@@ -8,11 +8,11 @@ import SeasonControl from "./SeasonControl";
 export type NavId = "home" | "agent" | "work" | "learn" | "make";
 type NavItem = { id: NavId; label: string; icon: MenuIconName; href: string; fill: string; hover: string };
 
-// TODO(TBD): 일하기·배우기·만들기 페이지는 아직 없음
+// TODO(TBD): 배우기·만들기 페이지는 아직 없음
 const navItems: NavItem[] = [
   { id: "home", label: "홈", icon: "home", href: "/", fill: "bg-gold", hover: "hover:bg-gold" },
   { id: "agent", label: "AI Agent", icon: "agent", href: "/agent", fill: "bg-red", hover: "hover:bg-red" },
-  { id: "work", label: "일하기", icon: "work", href: "#", fill: "bg-green", hover: "hover:bg-green" },
+  { id: "work", label: "내 작업", icon: "folder", href: "/works", fill: "bg-green", hover: "hover:bg-green" },
   { id: "learn", label: "배우기", icon: "learn", href: "#", fill: "bg-blue", hover: "hover:bg-blue" },
   { id: "make", label: "만들기", icon: "make", href: "#", fill: "bg-purple", hover: "hover:bg-purple" },
 ];

@@ -201,8 +201,15 @@ body {
 .animate-caret { animation: caret-blink 0.9s infinite; }
 .animate-candle { animation: candle 1.6s steps(3) infinite; }
 
+/* 배너 캐릭터의 "여기 눌러요" 화살표: 버튼 쪽으로 콕콕 */
+@keyframes nudge {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(4px); }
+}
+.animate-nudge { animation: nudge 0.8s steps(2) infinite; }
+
 @media (prefers-reduced-motion: reduce) {
-  .animate-npc, .animate-mark, .animate-xmas-a, .animate-xmas-b, .animate-santa, .animate-santa-enter, .animate-ding, .animate-shake, .animate-reveal, .animate-caret, .animate-candle, .animate-spark, .animate-ticket-pop { animation: none; }
+  .animate-npc, .animate-mark, .animate-xmas-a, .animate-xmas-b, .animate-santa, .animate-santa-enter, .animate-ding, .animate-shake, .animate-reveal, .animate-caret, .animate-candle, .animate-spark, .animate-ticket-pop, .animate-nudge { animation: none; }
   .animate-swing-up { animation: none; visibility: hidden; }
   .animate-swing-down { animation: none; }
   .animate-spark { display: none; }

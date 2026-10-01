@@ -42,7 +42,7 @@ export default function Sidebar({ current = "home", seasonControl = true }: { cu
         className="fixed bottom-4 left-4 top-4 z-30 hidden w-[96px] flex-col items-center py-4 md:flex"
         style={pixelFrame("wood", 3)}
       >
-        <div className="mb-2 text-lg text-gold">aurora</div>
+        <div className="mb-2 text-lg text-gold">Abyss</div>
         {seasonControl && <SeasonControl layout="sidebar" />}
         <nav className="flex flex-1 flex-col justify-evenly">
           {navItems.map((item) => (

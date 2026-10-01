@@ -10,8 +10,8 @@ import PixelSprite from "@/components/PixelSprite";
 import PricingPlans from "@/components/PricingPlans";
 
 export const metadata: Metadata = {
-  title: "aurora 알아보기",
-  description: "aurora에서 AI 도구를 마음껏 쓰고 나만의 AI Agent를 만드는 방법을 소개합니다",
+  title: "Abyss 알아보기",
+  description: "Abyss에서 AI 도구를 마음껏 쓰고 나만의 AI Agent를 만드는 방법을 소개합니다",
 };
 
 /** 간판 배경 타일: 9개 도구 아이콘을 섞어 깔고 사이사이 빈 타일 */
@@ -48,7 +48,7 @@ export default function GuidePage() {
         <Link href="/" aria-label="메인으로" title="메인으로" className="px-btn flex size-9 items-center justify-center bg-cream text-ink hover:bg-gold">
           <MenuIcon name="home" size={20} />
         </Link>
-        <span className="text-lg text-gold">aurora</span>
+        <span className="text-lg text-gold">Abyss</span>
       </nav>
 
       <main className="mx-auto mt-8 flex max-w-[960px] flex-col gap-12">
@@ -96,7 +96,7 @@ export default function GuidePage() {
           </div>
         </section>
 
-        {/* 흩어진 AI 가게 영수증 → aurora 한 테이블 */}
+        {/* 흩어진 AI 가게 영수증 → Abyss 한 테이블 */}
         <section className="px-6 py-10 text-ink md:px-10" style={pixelFrame("parchment", 3)}>
           <div className="text-center">
             <h2 className="text-balance text-2xl font-bold md:text-4xl">
@@ -141,7 +141,7 @@ export default function GuidePage() {
               ▼
             </span>
 
-            {/* 오른쪽: aurora 한 테이블 */}
+            {/* 오른쪽: Abyss 한 테이블 */}
             <div className="w-full max-w-[320px] px-6 py-6 text-center text-cream drop-shadow-[0_0_22px_rgb(242_181_68/0.45)]" style={pixelFrame("wood", 3)}>
               <p className="flex items-center justify-center gap-2 text-2xl text-gold">
                 <PixelSprite rows={CAT} palette={CAT_PALETTE} scale={2} />

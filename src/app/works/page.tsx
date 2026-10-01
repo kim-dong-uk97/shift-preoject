@@ -4,7 +4,7 @@ import WorksBoard from "@/components/WorksBoard";
 import { pixelFrame } from "@/lib/pixel";
 
 export const metadata: Metadata = {
-  title: "aurora 내 작업",
+  title: "Abyss 내 작업",
   description: "AI 도구로 만든 작업을 도구별로 모아 보는 곳",
 };
 
@@ -16,7 +16,7 @@ export default function WorksPage() {
 
       {/* 모바일 전용 상단 로고 */}
       <header className="relative z-10 flex items-center border-b-4 border-ink bg-[#3a2416] px-4 py-2 md:hidden">
-        <span className="text-lg text-gold">aurora</span>
+        <span className="text-lg text-gold">Abyss</span>
       </header>
 
       <main className="relative z-10 mx-auto flex max-w-[1100px] flex-col gap-6 px-4 pb-28 pt-8 md:pb-10 md:pl-[136px] md:pr-6">

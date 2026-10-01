@@ -16,7 +16,7 @@ export default function Home() {
 
       {/* 모바일 전용 상단 로고 */}
       <header className="relative z-10 flex items-center justify-between border-b-4 border-ink bg-[#3a2416] px-4 py-2 md:hidden">
-        <span className="text-lg text-gold">Abyss</span>
+        <span className="text-lg text-gold">Arvis</span>
         <SeasonControl layout="header" />
       </header>
 

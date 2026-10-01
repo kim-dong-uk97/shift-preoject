@@ -7,7 +7,7 @@ export const promoMenu = {
   /** 맨 위 간판: 도구 타일이 깔린 어두운 배경 + 추천하는 치즈냥이 */
   hero: {
     // 제목 1줄: before + (금색 강조) + after
-    titleBefore: "Abyss는 ",
+    titleBefore: "Arvis는 ",
     titleHighlight: "AI 선술집",
     titleAfter: "입니다.",
     title2: "좋은 AI 도구, 마음껏 쓰세요.",
@@ -18,11 +18,11 @@ export const promoMenu = {
     bubble: "사장냥 강력 추천!",
   },
 
-  /** 두 번째: 여기저기 흩어진 AI 가게 영수증 → Abyss 한 테이블로 모임 */
+  /** 두 번째: 여기저기 흩어진 AI 가게 영수증 → Arvis 한 테이블로 모임 */
   compare: {
     titleBefore: "AI 가게, 다섯 군데나 ",
     titleHighlight: "돌지 마세요.",
-    subtitle: "Abyss 한곳에서 좋은 AI 도구를 마음대로 골라 쓰세요.",
+    subtitle: "Arvis 한곳에서 좋은 AI 도구를 마음대로 골라 쓰세요.",
     // 왼쪽 흩어진 영수증 (TODO(TBD): 실제 서비스명 표기 여부 결정. 지금은 종류로만 표기)
     scattered: [
       { name: "대화 AI", lines: ["따로 가입", "따로 기록", "따로 결제"] },
@@ -33,7 +33,7 @@ export const promoMenu = {
     ],
     scatteredLabel: "여기저기 흩어짐",
     merged: {
-      name: "Abyss",
+      name: "Arvis",
       tagline: "모든 AI, 하나의 테이블.",
       points: ["엄선한 AI 도구 9가지", "AI Agent 하나로 전부 안내", "대화·작업 기록을 한곳에", "PC방에서 바로 시작"],
     },

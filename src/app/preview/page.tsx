@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import LauncherPreview from "@/components/LauncherPreview";
 
 export const metadata: Metadata = {
-  title: "Abyss 런처 미리보기",
+  title: "Arvis 런처 미리보기",
   robots: { index: false },
 };
 

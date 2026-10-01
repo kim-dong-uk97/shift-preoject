@@ -125,7 +125,7 @@ export default function ChatHero({ className = "" }: { className?: string }) {
       data-leaf-perch
       className={`relative flex flex-col p-4 ${className}`}
     >
-      <h1 className="sr-only">Abyss 홈</h1>
+      <h1 className="sr-only">Arvis 홈</h1>
       {/* 메인은 맛보기 — 제대로 된 대화는 AI Agent 화면에서 */}
       <Link
         href="/agent"

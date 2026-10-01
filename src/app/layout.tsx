@@ -3,7 +3,7 @@ import "galmuri/dist/galmuri.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Abyss",
+  title: "Arvis",
   description: "나만의 맞춤 AI Agent 플랫폼",
 };
 

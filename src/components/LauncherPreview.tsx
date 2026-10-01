@@ -46,7 +46,7 @@ export default function LauncherPreview() {
           {scale > 0 && (
             <iframe
               src="/"
-              title="Abyss 메인 화면"
+              title="Arvis 메인 화면"
               width={VIEW_W}
               height={VIEW_H}
               className="absolute left-0 top-0 max-w-none origin-top-left border-0"
